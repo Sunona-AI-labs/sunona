@@ -55,12 +55,12 @@ By participating in this project, you agree to maintain a respectful and inclusi
 Found a bug? Please help us fix it by creating a detailed bug report.
 
 **Before submitting:**
-- Check [existing issues](https://github.com/sap1119/sunona/issues) to avoid duplicates
+- Check [existing issues](https://github.com/Sunona-AI-labs/sunona/issues) to avoid duplicates
 - Make sure you're using the latest version
 
 **To report a bug:**
 
-1. Go to [Issues](https://github.com/sap1119/sunona/issues/new)
+1. Go to [Issues](https://github.com/Sunona-AI-labs/sunona/issues/new)
 2. Click **"New Issue"**
 3. Use this template:
 
@@ -101,7 +101,7 @@ Have an idea for a new feature? We'd love to hear it!
 
 **To suggest a feature:**
 
-1. Go to [Issues](https://github.com/sap1119/sunona/issues/new)
+1. Go to [Issues](https://github.com/Sunona-AI-labs/sunona/issues/new)
 2. Add the label `enhancement` or `feature-request`
 3. Use this template:
 
@@ -131,9 +131,9 @@ We welcome code contributions! Here's how to get started:
 #### Good First Issues
 
 Looking for something to work on? Check out issues labeled:
-- [`good first issue`](https://github.com/sap1119/sunona/labels/good%20first%20issue) - Great for newcomers
-- [`help wanted`](https://github.com/sap1119/sunona/labels/help%20wanted) - We need your help!
-- [`documentation`](https://github.com/sap1119/sunona/labels/documentation) - Improve our docs
+- [`good first issue`](https://github.com/Sunona-AI-labs/sunona/labels/good%20first%20issue) - Great for newcomers
+- [`help wanted`](https://github.com/Sunona-AI-labs/sunona/labels/help%20wanted) - We need your help!
+- [`documentation`](https://github.com/Sunona-AI-labs/sunona/labels/documentation) - Improve our docs
 
 #### Areas We Need Help With
 
@@ -338,8 +338,8 @@ update
 
 ### Get Help
 
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/sap1119/sunona/discussions)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/sap1119/sunona/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/Sunona-AI-labs/sunona/discussions)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/Sunona-AI-labs/sunona/issues)
 - 📧 **Email**: sathyaedu1119@gmail.com
 
 ### Stay Updated

@@ -480,7 +480,7 @@ Your star helps:
 - 💪 Motivate the team to build amazing features
 - 🎯 Attract contributors and partners
 
-**[⭐ Star Sunona on GitHub ⭐](https://github.com/your-repo-url)**
+**[⭐ Star Sunona on GitHub ⭐](https://github.com/Sunona-AI-labs/sunona)**
 
 It takes just one click and means the world to us! 🙏
 
@@ -488,7 +488,7 @@ It takes just one click and means the world to us! 🙏
 
 ### 📈 GitHub Stars Growth Chart
 
-![Star History Chart](https://api.star-history.com/svg?repos=your-username/sunona&type=Date)
+![Star History Chart](https://api.star-history.com/svg?repos=Sunona-AI-labs/sunona&type=Date)
 
 **Statistics:**
 - **Current Stars:** Auto-updated ⭐
@@ -499,7 +499,7 @@ It takes just one click and means the world to us! 🙏
 
 **Last Updated:** Automatic (every 10 minutes)
 
-**[⭐ Star Sunona on GitHub ⭐](https://github.com/your-username/sunona)**
+**[⭐ Star Sunona on GitHub ⭐](https://github.com/Sunona-AI-labs/sunona)**
 
 </div>
 
