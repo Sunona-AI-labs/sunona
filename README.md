@@ -6,10 +6,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.9+-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python"></a>
+  <a href="https://github.com/Sunona-AI-labs/sunona/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg" alt="Platform">
-  <img src="https://img.shields.io/github/stars/sunona-ai/sunona?style=social" alt="GitHub Stars">
+  <a href="https://github.com/Sunona-AI-labs/sunona/stargazers"><img src="https://img.shields.io/github/stars/Sunona-AI-labs/sunona?style=social" alt="GitHub Stars"></a>
 </p>
 
 ---
