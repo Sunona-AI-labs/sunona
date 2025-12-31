@@ -281,16 +281,15 @@ profit*.md
 # SaaS Proprietary Modules
 sunona/billing/
 sunona/multitenancy/
+sunona/monitoring/
+sunona/accounts/
 sunona/api/routes/billing.py
 sunona/api/routes/organizations.py
 sunona/api/routes/billed_services.py
 sunona/api/routes/dashboard.py
-
-#If SaaS-specific auth
-sunona/api/routes/user_auth.py  
 sunona/api/routes/analytics.py
-sunona/multitenancy.py
-sunona/billing.py
+sunona/playground/analytics_dashboard.py
+sunona/auth/organization.py
 
 # API keys and tokens config
 .pypirc

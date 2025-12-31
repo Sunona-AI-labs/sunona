@@ -78,9 +78,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 | Mode | Services | Use Case |
 |------|----------|----------|
 | **Basic** | App + Redis | Development, testing |
-| **Full** | App + Redis + PostgreSQL | Production without monitoring |
-| **Development** | All + Ngrok | Local dev with Twilio webhooks |
-| **Production** | All + Monitoring | Full production with Prometheus/Grafana |
+| **Full** | App + Redis + PostgreSQL | Production |
 
 ---
 
@@ -94,8 +92,6 @@ RUN --mount=type=cache,target=/var/cache/apt \
 | `postgres` | 5432 | Database |
 | `chromadb` | 8001 | Vector store (RAG profile) |
 | `ngrok` | 4040 | Tunnel console (dev profile) |
-| `prometheus` | 9090 | Metrics (monitoring profile) |
-| `grafana` | 3000 | Dashboard (monitoring profile) |
 
 ---
 
@@ -113,7 +109,6 @@ cp ../.env.example ../.env
 OPENROUTER_API_KEY=sk-or-v1-xxx    # LLM (FREE)
 DEEPGRAM_API_KEY=xxx               # STT
 ELEVENLABS_API_KEY=xxx             # TTS
-DEFAULT_ORGANIZATION_ID=org_default # Multi-tenancy
 SUNONA_MASTER_KEY=xxx              # API Security
 ```
 
@@ -139,12 +134,6 @@ docker compose up -d sunona-app redis postgres
 
 # With ngrok (for Twilio)
 docker compose --profile dev up -d
-
-# With monitoring
-docker compose --profile monitoring up -d
-
-# Everything
-docker compose --profile dev --profile monitoring --profile rag up -d
 ```
 
 ### View Logs
@@ -179,7 +168,6 @@ docker compose up -d --build
 
 PostgreSQL is initialized with:
 - Users & API keys tables
-- Billing accounts & transactions
 - Knowledge bases & chunks (with vector support)
 - Agents configuration
 - Call logs
@@ -208,9 +196,6 @@ docker compose --profile rag up -d
 
 # Enable development tools (Ngrok)
 docker compose --profile dev up -d
-
-# Enable monitoring (Prometheus + Grafana)
-docker compose --profile monitoring up -d
 ```
 
 ---
@@ -220,7 +205,6 @@ docker compose --profile monitoring up -d
 - [x] Set strong `JWT_SECRET` and `SUNONA_MASTER_KEY`
 - [x] Review Production Hardening Audit report
 - [ ] Change default PostgreSQL password
-- [ ] Configure Stripe for billing
 - [ ] Set up SMTP for email notifications
 - [ ] Configure SSL/TLS (use reverse proxy)
 - [ ] Set `SUNONA_DEBUG=false`

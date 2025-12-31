@@ -8,7 +8,6 @@ Features:
 - WebSocket real-time chat
 - Playground API (no-code tools)
 - WebRTC browser calling
-- Multi-tenant organizations
 - Rate limiting
 - Structured logging
 - Health checks
@@ -400,9 +399,9 @@ async def websocket_chat(websocket: WebSocket, agent_id: str):
     organization_id = agent_data.get("organization_id")
     user_id = agent_data.get("created_by")
     
-    # Enforce Billing
-    billing_middleware = BillingMiddleware()
-    if organization_id:
+    # Enforce Billing if available
+    if BillingMiddleware and organization_id:
+        billing_middleware = BillingMiddleware()
         try:
             await billing_middleware.check_balance(organization_id)
         except Exception as e:
