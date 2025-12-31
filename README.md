@@ -490,14 +490,9 @@ It takes just one click and means the world to us! 🙏
 
 ![Star History Chart](https://api.star-history.com/svg?repos=Sunona-AI-labs/sunona&type=Date)
 
-**Statistics:**
-- **Current Stars:** Auto-updated ⭐
-- **Total Growth:** Tracked daily
-- **Tracking Status:** Live updates every 10 minutes ⚡
+*Chart auto-updates every 10 minutes!* ⚡
 
-*Chart displays your complete growth history from day one!*
-
-**Last Updated:** Automatic (every 10 minutes)
+**Last Updated:** December 31, 2025 at 18:51 UTC
 
 **[⭐ Star Sunona on GitHub ⭐](https://github.com/Sunona-AI-labs/sunona)**
 
