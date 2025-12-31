@@ -51,29 +51,10 @@ MAX_CONVERSATION_TURNS = 50
 
 HIGH_LEVEL_ASSISTANT_ANALYTICS_DATA = {
     "extraction_details": {},
-    "cost_details": {
-        "average_transcriber_cost_per_conversation": 0,
-        "average_llm_cost_per_conversation": 0,
-        "average_synthesizer_cost_per_conversation": 1.0,
-        "average_telephony_cost_per_conversation": 0,
-        "average_platform_fee_per_conversation": 0,
-    },
-    "historical_spread": {
-        "number_of_conversations_in_past_5_days": [],
-        "cost_past_5_days": [],
-        "average_duration_past_5_days": [],
-    },
     "conversation_details": {
         "total_conversations": 0,
         "finished_conversations": 0,
-        "rejected_conversations": 0,
         "transferred_conversations": 0,
-    },
-    "execution_details": {
-        "total_conversations": 0,
-        "total_cost": 0,
-        "average_duration_of_conversation": 0,
-        "total_minutes": 0,
     },
     "agent_performance": {
         "successful_extractions": 0,
@@ -208,60 +189,8 @@ DEFAULT_LLM_TEMPERATURE = 0.7
 DEFAULT_LLM_MAX_TOKENS = 500
 
 
-# ==================== BILLING CONSTANTS ====================
-
-# Minimum balances
-MINIMUM_BALANCE_FOR_CALL = Decimal("1.00")
-MINIMUM_BALANCE_LOW = Decimal("5.00")
-MINIMUM_BALANCE_MEDIUM = Decimal("20.00")
-AUTO_TOPUP_THRESHOLD = Decimal("5.00")
-DEFAULT_AUTO_TOPUP_AMOUNT = Decimal("20.00")
-
-# Platform fee
-PLATFORM_FEE_PER_MINUTE = Decimal("0.01")
-MARKUP_PERCENT = Decimal("0.15")  # 15% markup on provider costs
-
-# Provider costs (per unit)
-PROVIDER_COSTS = {
-    "stt": {  # Per minute
-        "deepgram-nova-2": Decimal("0.0145"),
-        "whisper": Decimal("0.006"),
-        "groq-whisper": Decimal("0.006"),
-        "assemblyai": Decimal("0.015"),
-        "azure-stt": Decimal("0.016"),
-        "google-stt": Decimal("0.016"),
-        "aws-transcribe": Decimal("0.024"),
-    },
-    "llm": {  # Per 1K tokens (average of input/output)
-        "gpt-4o-mini": Decimal("0.00015"),
-        "gpt-4o": Decimal("0.005"),
-        "gpt-4-turbo": Decimal("0.01"),
-        "claude-3-haiku": Decimal("0.00075"),
-        "claude-3.5-sonnet": Decimal("0.009"),
-        "groq-llama-3.1-8b": Decimal("0.00006"),
-        "groq-llama-3.1-70b": Decimal("0.00069"),
-        "gemini-1.5-flash": Decimal("0.0002"),
-        "gemini-1.5-pro": Decimal("0.003"),
-        "openrouter-free": Decimal("0"),
-    },
-    "tts": {  # Per 1K characters
-        "elevenlabs": Decimal("0.18"),
-        "openai-tts": Decimal("0.015"),
-        "deepgram-aura": Decimal("0.0065"),
-        "playht": Decimal("0.03"),
-        "cartesia": Decimal("0.05"),
-        "azure-tts": Decimal("0.016"),
-        "aws-polly": Decimal("0.004"),
-    },
-    "telephony": {  # Per minute
-        "twilio": Decimal("0.022"),
-        "plivo": Decimal("0.015"),
-        "vonage": Decimal("0.018"),
-        "telnyx": Decimal("0.012"),
-        "signalwire": Decimal("0.010"),
-        "bandwidth": Decimal("0.014"),
-    },
-}
+# Provider pricing (STILL Core API compatible)
+PROVIDER_COSTS = {}
 
 # Free models (OpenRouter)
 FREE_LLM_MODELS = [
