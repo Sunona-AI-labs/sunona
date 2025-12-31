@@ -1,0 +1,62 @@
+name: 🌟 Update GitHub Stars
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    # Run every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-stars:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+      
+      - name: 🔍 Update star count in README
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: python scripts/update_stars.py
+      
+      - name: 📝 Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          if git diff --quiet README.md stars_history.json 2>/dev/null; then
+            echo "✅ No changes detected"
+          else
+            git add README.md stars_history.json 2>/dev/null || true
+            git commit -m "🌟 auto: update stars and growth chart" --allow-empty
+            git push origin HEAD:${{ github.ref }}
+          fi
+      
+      - name: ✅ Workflow completed
+        run: |
+          echo "🎉 Star update workflow completed successfully!"
+          echo "📊 Chart updates every 10 minutes"
+          echo "📈 Growth history saved to stars_history.json"
+          fi

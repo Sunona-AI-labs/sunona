@@ -1,0 +1,74 @@
+# Sunona Voice AI - Dependencies
+
+# Core Framework
+fastapi>=0.108.0
+uvicorn>=0.22.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# Async & HTTP
+aiohttp>=3.9.0
+aiofiles>=23.2.0
+httpx[http2]>=0.25.0
+websockets>=12.0
+
+# LLM Providers
+openai>=1.10.0
+litellm>=1.50.0
+
+# Speech-to-Text
+deepgram-sdk>=3.0.0
+# google-cloud-speech>=2.21.0  # Uncomment for Google STT
+# azure-cognitiveservices-speech>=1.30.0  # Uncomment for Azure STT
+# boto3>=1.34.0  # Uncomment for AWS Transcribe
+
+# Text-to-Speech
+elevenlabs>=1.0.0
+# boto3>=1.34.0  # For AWS Polly (shared with Transcribe)
+# azure-cognitiveservices-speech>=1.30.0  # For Azure TTS (shared with STT)
+
+# Telephony
+twilio>=8.9.0
+plivo>=4.40.0
+vonage>=3.10.0
+# signalwire>=1.4.0  # Uncomment for SignalWire
+# telnyx>=2.1.0  # Uncomment for Telnyx
+# bandwidth-sdk>=3.10.0  # Uncomment for Bandwidth
+
+# Data Storage
+redis>=5.0.0
+
+# Audio Processing
+pydub>=0.25.1
+numpy>=1.24.0
+
+# Content Moderation
+better-profanity>=0.7.0
+
+# RAG - Vector Stores
+chromadb>=0.4.0
+
+# RAG - Embeddings (Optional for local models)
+# sentence-transformers>=2.2.0  # Uncomment for local embeddings
+
+# VAD - Voice Activity Detection (Production Ready)
+torch>=2.0.0
+# numpy already installed above
+
+# Utilities
+python-dateutil>=2.8.2
+tiktoken>=0.6.0
+pyjwt>=2.8.0
+aiosmtplib>=3.0.0
+
+# Text-to-Speech (Edge TTS - FREE, unlimited)
+edge-tts>=6.1.0
+
+# Audio Playback
+pygame>=2.5.0
+
+# Audio Recording
+sounddevice>=0.4.6
+
+# Language Detection (for multilingual TTS)
+langdetect>=1.0.9

@@ -1,0 +1,24 @@
+# Prometheus Configuration for Sunona Voice AI
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'sunona-app'
+    static_configs:
+      - targets: ['sunona-app:8000']
+    metrics_path: '/metrics'
+  
+  - job_name: 'twilio-server'
+    static_configs:
+      - targets: ['twilio-server:8001']
+    metrics_path: '/metrics'
+  
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+  
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']

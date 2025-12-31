@@ -1,0 +1,18 @@
+# Include documentation and configuration files
+include README.md
+include LICENSE
+include requirements.txt
+include .env.example
+
+# Include example scripts and documentation
+recursive-include examples *.py *.md
+
+# Include all Python files in the sunona package
+recursive-include sunona *.py
+
+# Exclude development and build artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude *.dylib

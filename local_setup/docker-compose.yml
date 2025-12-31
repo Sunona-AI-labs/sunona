@@ -1,0 +1,254 @@
+# Sunona Voice AI - Production Docker Compose
+# Run with: docker compose up -d
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # Main Sunona API Server
+  # ==========================================================================
+  sunona-app:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile
+    container_name: sunona-app
+    ports:
+      - "8000:8000"
+    environment:
+      # Server
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8000
+      - SUNONA_DEBUG=${SUNONA_DEBUG:-false}
+      - SUNONA_BASE_URL=${SUNONA_BASE_URL:-http://localhost:8000}
+      
+      # Database & Cache
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://sunona:sunona@postgres:5432/sunona}
+      
+      # LLM Providers
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-mistralai/mistral-7b-instruct:free}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      
+      # STT Providers
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - ASSEMBLYAI_API_KEY=${ASSEMBLYAI_API_KEY:-}
+      - SARVAM_API_KEY=${SARVAM_API_KEY:-}
+      
+      # TTS Providers
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-EXAVITQu4vr4xnSDxMaL}
+      - RIME_API_KEY=${RIME_API_KEY:-}
+      - CARTESIA_API_KEY=${CARTESIA_API_KEY:-}
+      
+      # Telephony
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - TWILIO_WEBHOOK_URL=${TWILIO_WEBHOOK_URL}
+      
+      # Billing
+      - STRIPE_API_KEY=${STRIPE_API_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      
+      # Email Notifications
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      
+      # Security
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - SUNONA_MASTER_KEY=${SUNONA_MASTER_KEY:-}
+      
+      # Enterprise & Hardening
+      - DEFAULT_ORGANIZATION_ID=${DEFAULT_ORGANIZATION_ID:-org_default}
+      - ENFORCE_ORGANIZATION_ISOLATION=${ENFORCE_ORGANIZATION_ISOLATION:-true}
+      - CIRCUIT_BREAKER_FAILURE_THRESHOLD=${CIRCUIT_BREAKER_FAILURE_THRESHOLD:-5}
+      - CIRCUIT_BREAKER_RECOVERY_TIMEOUT=${CIRCUIT_BREAKER_RECOVERY_TIMEOUT:-60}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # ==========================================================================
+  # Twilio Call Server
+  # ==========================================================================
+  twilio-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.twilio
+    container_name: sunona-twilio
+    ports:
+      - "8001:8001"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8001
+      - REDIS_URL=redis://redis:6379/0
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - TWILIO_WEBHOOK_URL=${TWILIO_WEBHOOK_URL}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Redis Cache & Session Storage
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: sunona-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: sunona-postgres
+    environment:
+      - POSTGRES_USER=sunona
+      - POSTGRES_PASSWORD=sunona
+      - POSTGRES_DB=sunona
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sunona"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # ChromaDB Vector Store (for RAG)
+  # ==========================================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: sunona-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - rag
+
+  # ==========================================================================
+  # Ngrok Tunnel (for local dev with Twilio)
+  # ==========================================================================
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: sunona-ngrok
+    command:
+      - "http"
+      - "sunona-app:8000"
+      - "--domain=${NGROK_DOMAIN:-}"
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTH_TOKEN}
+    ports:
+      - "4040:4040"
+    depends_on:
+      - sunona-app
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - dev
+
+  # ==========================================================================
+  # Prometheus Monitoring (optional)
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sunona-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # ==========================================================================
+  # Grafana Dashboard (optional)
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sunona-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  sunona-network:
+    driver: bridge
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  redis-data:
+  postgres-data:
+  chroma-data:
+  prometheus-data:
+  grafana-data:
