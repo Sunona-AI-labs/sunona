@@ -144,7 +144,7 @@ def update_readme(stars: int, repo_url: str, owner: str, repo: str) -> bool:
 def main():
     """Main execution function"""
     # Get repository info from GitHub Actions environment
-    repo_full = os.getenv("GITHUB_REPOSITORY", "sunona-ai/sunona")
+    repo_full = os.getenv("GITHUB_REPOSITORY", "Sunona-AI-labs/sunona")
     owner, repo = repo_full.split("/")
     
     # Build repository URL

@@ -59,4 +59,3 @@ jobs:
           echo "🎉 Star update workflow completed successfully!"
           echo "📊 Chart updates every 10 minutes"
           echo "📈 Growth history saved to stars_history.json"
-          fi
