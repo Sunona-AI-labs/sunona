@@ -83,8 +83,7 @@ python examples/simple_assistant.py
 # Twilio call server (phone calls!)
 python examples/twilio_call_server.py
 ```
-
-### 4. Simple Voice Assistant Features
+### 5. Simple Voice Assistant Features
 
 The `simple_assistant.py` is a complete hands-free voice assistant with:
 
@@ -99,6 +98,25 @@ The `simple_assistant.py` is a complete hands-free voice assistant with:
 | **⚡ Low Latency** | Optimized for fast, natural conversation |
 
 ---
+
+### 4. 🛠️ Quick Start Scripts (Recommended) API ROUTES BASED TESTS(conversational_details.json, config.json, config_minimal.json, users.json)
+
+Use these scripts from the root directory to interact with the Sunona API easily. They handle authentication and URL encoding for you.
+
+**start the python sunona server** : python -m sunona.server 
+# dont close this python sunona.server it has intigrated server with twilio server for call services using api's
+
+| Script | Purpose | Command |
+|--------|---------|---------|
+| **Health Check** | Verify server connection | `.\scripts\test_api.bat` |
+
+| **Create Agent** | Register a new AI agent | `.\scripts\create_agent.bat` |
+
+| **Make Call** | Initiate a phone call | `.\scripts\make_call.bat` |
+
+> [!TIP]
+> These scripts are compatible with both CMD and PowerShell and use `curl.exe` to avoid alias conflicts.
+
 
 ## 🤖 AI Agents
 
@@ -269,8 +287,11 @@ ngrok http 8000
 # Terminal 2: Start server
 python examples/twilio_call_server.py
 
-# Terminal 3: Make a call
-Invoke-RestMethod -Method POST -Uri "http://localhost:8000/make-call?to=%2B1234567890"
+# Terminal 3: Make a call (easiest way)
+.\scripts\make_call.bat +917075xxxxxx <agent_id>
+
+# Or via manual POST request (requires URL encoding for +)
+Invoke-RestMethod -Method POST -Uri "http://localhost:8000/make-call?to=%2B917075xxxxxx&agent_id=your_id"
 ```
 
 ### Supported Telephony Providers

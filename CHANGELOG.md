@@ -5,6 +5,17 @@ All notable changes to the Sunona Voice AI project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-01-01
+
+### Fixed
+
+**🛠️ Utility Scripts Robustness**
+- Updated `test_api.bat`, `create_agent.bat`, and `make_call.bat` to use `curl.exe` explicitly.
+- Prevents conflicts with PowerShell's `curl` alias on Windows.
+- Added automatic URL encoding for `+` prefix in `make_call.bat` using a PowerShell helper.
+
+---
+
 ## [0.2.0] - 2025-12-31
 
 ### Added

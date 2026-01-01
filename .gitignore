@@ -215,6 +215,11 @@ cache/
 prometheus_data/
 grafana_data/
 
+# Assistant work directory
+brain/
+.gemini/
+.antigravity/
+
 # Generated files
 *.generated.*
 auto_generated/
@@ -250,14 +255,14 @@ backups/
 # COMMERCIAL & SENSITIVE FILES (DO NOT PUSH TO GITHUB)
 # =============================================================================
 # Business/Commercial plans
-billing_admin_guide.md
-saas_comparison_others.md
-saas_transformation_roadmap.md
-comparison_report.md
-domain_specialization_plan.md
-PYPI_PUBLISH_GUIDE.md
-high_level_architecture.md
+docs/billing_admin_guide.md
+docs/saas_comparison_others.md
+docs/saas_transformation_roadmap.md
+docs/comparison_report.md
+docs/domain_specialization_plan.md
+docs/high_level_architecture.md
 rebranding_plan.md
+PYPI_PUBLISH_GUIDE.md
 
 # Internal strategy documents
 *_plan.md
@@ -281,15 +286,16 @@ profit*.md
 # SaaS Proprietary Modules
 sunona/billing/
 sunona/multitenancy/
-sunona/monitoring/
-sunona/accounts/
 sunona/api/routes/billing.py
 sunona/api/routes/organizations.py
 sunona/api/routes/billed_services.py
 sunona/api/routes/dashboard.py
+
+#If SaaS-specific auth
+sunona/api/routes/user_auth.py  
 sunona/api/routes/analytics.py
-sunona/playground/analytics_dashboard.py
-sunona/auth/organization.py
+sunona/multitenancy.py
+sunona/billing.py
 
 # API keys and tokens config
 .pypirc
@@ -308,3 +314,14 @@ scratch/
 sandbox/
 temp_test/
 
+# Agent execution data (Local only)
+agent_data/*/sessions/
+agent_data/*/recordings/
+agent_data/*/logs/
+agent_data/*/results/
+agent_data/*/transcripts/
+
+# Local build artifacts
+*.exe
+*.bin
+*.iso

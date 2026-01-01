@@ -52,6 +52,16 @@ htmlcov/
 docs/_build/
 *.md
 !README.md
+!docs/PROVIDER_REFERENCE.md
+!docs/API_TESTING_GUIDE.md
+!docs/TWILIO_SETUP.md
+!docs/README.md
+docs/billing_admin_guide.md
+docs/comparison_report.md
+docs/domain_specialization_plan.md
+docs/high_level_architecture.md
+docs/saas_comparison_others.md
+docs/saas_transformation_roadmap.md
 
 # Local development
 .env
@@ -59,8 +69,11 @@ docs/_build/
 *.log
 logs/
 .gemini/
+.antigravity/
+brain/
 data/
 output/
+tests/
 
 # Docker (don't include in context)
 local_setup/

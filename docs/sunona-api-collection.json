@@ -1,0 +1,137 @@
+{
+    "_type": "export",
+    "resources": [
+        {
+            "_id": "wrk_sunona",
+            "_type": "workspace",
+            "name": "Sunona Voice AI",
+            "description": "API testing workspace for Sunona Voice AI"
+        },
+        {
+            "_id": "env_base",
+            "_type": "environment",
+            "parentId": "wrk_sunona",
+            "name": "Local Development",
+            "data": {
+                "base_url": "http://localhost:8000",
+                "api_key": "master-key",
+                "agent_id": "",
+                "phone_number": "+917075xxxxxx"
+            }
+        },
+        {
+            "_id": "fld_agents",
+            "_type": "request_group",
+            "parentId": "wrk_sunona",
+            "name": "Agents"
+        },
+        {
+            "_id": "fld_calls",
+            "_type": "request_group",
+            "parentId": "wrk_sunona",
+            "name": "Calls"
+        },
+        {
+            "_id": "fld_health",
+            "_type": "request_group",
+            "parentId": "wrk_sunona",
+            "name": "Health"
+        },
+        {
+            "_id": "req_health",
+            "_type": "request",
+            "parentId": "fld_health",
+            "name": "Health Check",
+            "method": "GET",
+            "url": "{{ _.base_url }}/health"
+        },
+        {
+            "_id": "req_root",
+            "_type": "request",
+            "parentId": "fld_health",
+            "name": "Root",
+            "method": "GET",
+            "url": "{{ _.base_url }}/"
+        },
+        {
+            "_id": "req_create_agent",
+            "_type": "request",
+            "parentId": "fld_agents",
+            "name": "1. Create Agent",
+            "method": "POST",
+            "url": "{{ _.base_url }}/agent",
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "X-API-Key",
+                    "value": "{{ _.api_key }}"
+                }
+            ],
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"agent_config\": {\n    \"agent_name\": \"Neha\",\n    \"agent_welcome_message\": \"Hello! This is Neha from HR.\",\n    \"tasks\": [{\n      \"tools_config\": {\n        \"llm_agent\": {\n          \"streaming_model\": \"gpt-3.5-turbo-16k\",\n          \"agent_flow_type\": \"streaming\"\n        },\n        \"synthesizer\": {\n          \"provider\": \"polly\",\n          \"voice\": \"Kajal\"\n        },\n        \"transcriber\": {\n          \"provider\": \"deepgram\"\n        }\n      }\n    }]\n  },\n  \"agent_prompts\": {\n    \"task_1\": {\n      \"system_prompt\": \"You are Neha, a helpful recruiting assistant.\"\n    }\n  }\n}"
+            }
+        },
+        {
+            "_id": "req_get_agent",
+            "_type": "request",
+            "parentId": "fld_agents",
+            "name": "2. Get Agent",
+            "method": "GET",
+            "url": "{{ _.base_url }}/agent/{{ _.agent_id }}",
+            "headers": [
+                {
+                    "name": "X-API-Key",
+                    "value": "{{ _.api_key }}"
+                }
+            ]
+        },
+        {
+            "_id": "req_list_agents",
+            "_type": "request",
+            "parentId": "fld_agents",
+            "name": "3. List Agents",
+            "method": "GET",
+            "url": "{{ _.base_url }}/agents",
+            "headers": [
+                {
+                    "name": "X-API-Key",
+                    "value": "{{ _.api_key }}"
+                }
+            ]
+        },
+        {
+            "_id": "req_delete_agent",
+            "_type": "request",
+            "parentId": "fld_agents",
+            "name": "4. Delete Agent",
+            "method": "DELETE",
+            "url": "{{ _.base_url }}/agent/{{ _.agent_id }}",
+            "headers": [
+                {
+                    "name": "X-API-Key",
+                    "value": "{{ _.api_key }}"
+                }
+            ]
+        },
+        {
+            "_id": "req_make_call",
+            "_type": "request",
+            "parentId": "fld_calls",
+            "name": "Make Call",
+            "method": "POST",
+            "url": "{{ _.base_url }}/make-call?to={{ _.phone_number }}&agent_id={{ _.agent_id }}"
+        },
+        {
+            "_id": "req_list_calls",
+            "_type": "request",
+            "parentId": "fld_calls",
+            "name": "List Active Calls",
+            "method": "GET",
+            "url": "{{ _.base_url }}/calls"
+        }
+    ]
+}

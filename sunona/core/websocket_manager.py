@@ -591,6 +591,8 @@ class WebSocketManager:
         
         # Connection closed or error occurred
         await self.disconnect(connection, reason="receive_loop_ended")
+    
+    async def _heartbeat_loop(self):
         """Background task for connection heartbeats."""
         while self._running:
             try:

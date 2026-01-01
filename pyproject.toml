@@ -35,10 +35,10 @@ dynamic = ["dependencies"]
 requires-python = ">=3.10"
 
 [project.urls]
-Homepage = "https://github.com/Sunona-AI-labs/sunona"
-Repository = "https://github.com/Sunona-AI-labs/sunona"
-Documentation = "https://github.com/Sunona-AI-labs/sunona#readme"
-"Bug Tracker" = "https://github.com/Sunona-AI-labs/sunona/issues"
+Homepage = "https://github.com/sap1119/sunona"
+Repository = "https://github.com/sap1119/sunona"
+Documentation = "https://github.com/sap1119/sunona#readme"
+"Bug Tracker" = "https://github.com/sap1119/sunona/issues"
 
 [project.optional-dependencies]
 dev = ["pip-tools", "pytest", "pytest-asyncio", "black", "ruff"]

@@ -58,6 +58,22 @@ async def get_api_key(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # First, check if it's the master key (works regardless of multitenancy)
+    master_key = os.getenv("SUNONA_MASTER_KEY")
+    if master_key and key == master_key:
+        # Master key authentication - create a simple admin APIKey object
+        # Use a simple namespace object to avoid class instantiation issues
+        class MasterAPIKey:
+            id = "master"
+            organization_id = "default"
+            def has_permission(self, perm): return True
+        
+        api_key = MasterAPIKey()
+        request.state.organization_id = "default"
+        request.state.api_key_id = "master"
+        return api_key
+    
+    # Otherwise, try multitenancy validation
     if HAS_MULTITENANCY:
         manager = get_tenant_manager()
         client_ip = request.client.host if request.client else "unknown"
@@ -71,14 +87,11 @@ async def get_api_key(
                 detail="Invalid or expired API key",
             )
     else:
-        # Standalone Mode: Validate against Master Key
-        master_key = os.getenv("SUNONA_MASTER_KEY")
-        if not master_key or key != master_key:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid API key (Standalone Mode)",
-            )
-        api_key = APIKey()
+        # Standalone Mode: No valid key found
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key",
+        )
     
     # Ingest into request state for later use
     request.state.organization_id = api_key.organization_id
@@ -129,13 +142,19 @@ def require_permission(permission_name: str):
 
 def require_auth(permission: Optional[str] = None):
     """
-    Decorator for route handlers that require authentication.
+    Factory that returns a dependency callable for authentication.
     
     Usage:
-        @router.get("/agents", dependencies=[Depends(require_auth("agent:read"))])
+        @router.get("/agents", dependencies=[Depends(require_auth())])
         async def list_agents(): ...
+        
+        @router.get("/protected", dependencies=[Depends(require_auth("agent:read"))])
+        async def protected_route(): ...
     """
     if permission:
-        return Depends(require_permission(permission))
-    return Depends(get_api_key)
+        # Return the permission dependency callable (not wrapped in Depends)
+        return require_permission(permission)
+    # Return the get_api_key callable directly (not wrapped in Depends)
+    return get_api_key
+
 
