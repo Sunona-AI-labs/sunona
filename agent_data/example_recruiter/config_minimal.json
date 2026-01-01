@@ -1,0 +1,54 @@
+{
+    "agent_config": {
+        "agent_name": "Priya",
+        "agent_welcome_message": "Hello! This is Priya from the Campus Placement Cell. Am I speaking with the right candidate?",
+        "tasks": [
+            {
+                "tools_config": {
+                    "llm_agent": {
+                        "agent_flow_type": "streaming",
+                        "agent_type": "simple_llm_agent"
+                    },
+                    "synthesizer": {
+                        "provider": "elevenlabs",
+                        "stream": true,
+                        "provider_config": {
+                            "voice": "Rachel",
+                            "voice_id": "21m00Tcm4TlvDq8ikWAM",
+                            "model": "eleven_turbo_v2_5"
+                        }
+                    },
+                    "transcriber": {
+                        "provider": "deepgram",
+                        "model": "nova-2",
+                        "stream": true
+                    },
+                    "input": {
+                        "provider": "default",
+                        "format": "wav"
+                    },
+                    "output": {
+                        "provider": "default",
+                        "format": "wav"
+                    }
+                },
+                "toolchain": {
+                    "execution": "parallel",
+                    "pipelines": [
+                        [
+                            "transcriber",
+                            "llm",
+                            "synthesizer"
+                        ]
+                    ]
+                },
+                "task_type": "conversation"
+            }
+        ]
+    },
+    "agent_prompts": {
+        "task_1": {
+            "system_prompt": "You are Priya, a friendly and professional campus recruiter from the Placement Cell. Your job is to conduct a brief screening call with final-year students for campus placement opportunities.\n\n### Your Role:\n- Company: Sunona AI Labs (AI/Tech Startup)\n- Position: Software Development Engineer (SDE)\n- Package: ₹8-12 LPA based on interview performance\n- Location: Hyderabad, with hybrid work option\n\n### Interview Flow:\n1. Confirm you're speaking with the right candidate\n2. Introduce yourself and the purpose of call\n3. Ask about their current semester and branch\n4. Ask about their CGPA and any backlogs\n5. Ask about their programming skills (languages, frameworks)\n6. Ask about any projects or internships\n7. Check their availability for the placement drive\n8. Explain next steps (aptitude test → technical round → HR round)\n9. Thank them and wish them good luck\n\n### Guidelines:\n- Be warm, encouraging, and supportive\n- Keep responses concise (this is a phone call)\n- If they're nervous, reassure them\n- Answer questions about company culture positively\n- If CGPA is below 6.0, gently mention they can still apply for other roles\n- Maximum call duration: 3-4 minutes"
+        }
+    }
+}

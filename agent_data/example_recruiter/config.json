@@ -1,0 +1,152 @@
+{
+    "agent_config": {
+        "agent_name": "Neha",
+        "agent_welcome_message": "Hello! This is Neha from HR. Thanks for taking my call today.",
+        "tasks": [
+            {
+                "tools_config": {
+                    "llm_agent": {
+                        "max_tokens": 150,
+                        "agent_flow_type": "streaming",
+                        "use_fallback": true,
+                        "agent_task": "conversation",
+                        "_comment_llm": "LLM Provider Priority - uses first available API key",
+                        "providers": {
+                            "primary": {
+                                "provider": "openrouter",
+                                "model": "mistralai/mistral-7b-instruct:free",
+                                "env_key": "OPENROUTER_API_KEY"
+                            },
+                            "fallback_1": {
+                                "provider": "groq",
+                                "model": "llama-3.1-70b-versatile",
+                                "env_key": "GROQ_API_KEY"
+                            },
+                            "fallback_2": {
+                                "provider": "openai",
+                                "model": "gpt-4o-mini",
+                                "env_key": "OPENAI_API_KEY"
+                            },
+                            "fallback_3": {
+                                "provider": "google",
+                                "model": "gemini-1.5-flash",
+                                "env_key": "GOOGLE_API_KEY"
+                            }
+                        },
+                        "_active_config": "Auto-detected based on available env keys",
+                        "streaming_model": "openrouter/mistralai/mistral-7b-instruct:free"
+                    },
+                    "synthesizer": {
+                        "_comment_tts": "TTS Provider Priority - uses first available API key",
+                        "providers": {
+                            "primary": {
+                                "provider": "elevenlabs",
+                                "voice": "bella",
+                                "env_key": "ELEVENLABS_API_KEY"
+                            },
+                            "fallback_1": {
+                                "provider": "polly",
+                                "voice": "Kajal",
+                                "env_key": "AWS_ACCESS_KEY_ID"
+                            },
+                            "fallback_2": {
+                                "provider": "deepgram",
+                                "voice": "aura-asteria-en",
+                                "env_key": "DEEPGRAM_API_KEY"
+                            },
+                            "fallback_3": {
+                                "provider": "openai",
+                                "voice": "alloy",
+                                "env_key": "OPENAI_API_KEY"
+                            },
+                            "fallback_4": {
+                                "provider": "edge_tts",
+                                "voice": "en-IN-NeerjaNeural",
+                                "env_key": null,
+                                "_note": "FREE - Currently not supported by core validation"
+                            }
+                        },
+                        "_active_config": "Auto-detected based on available env keys",
+                        "provider": "elevenlabs",
+                        "voice": "bella",
+                        "language": "en-US",
+                        "stream": true,
+                        "buffer_size": 40,
+                        "audio_format": "pcm",
+                        "sampling_rate": "8000"
+                    },
+                    "transcriber": {
+                        "_comment_stt": "STT Provider Priority - uses first available API key",
+                        "providers": {
+                            "primary": {
+                                "provider": "deepgram",
+                                "model": "nova-2",
+                                "env_key": "DEEPGRAM_API_KEY"
+                            },
+                            "fallback_1": {
+                                "provider": "groq",
+                                "model": "whisper-large-v3",
+                                "env_key": "GROQ_API_KEY"
+                            },
+                            "fallback_2": {
+                                "provider": "assemblyai",
+                                "model": "default",
+                                "env_key": "ASSEMBLYAI_API_KEY"
+                            },
+                            "fallback_3": {
+                                "provider": "openai",
+                                "model": "whisper-1",
+                                "env_key": "OPENAI_API_KEY"
+                            }
+                        },
+                        "_active_config": "Auto-detected based on available env keys",
+                        "provider": "deepgram",
+                        "model": "nova-2",
+                        "stream": true,
+                        "language": "en"
+                    },
+                    "input": {
+                        "provider": "twilio",
+                        "format": "pcm"
+                    },
+                    "output": {
+                        "provider": "twilio",
+                        "format": "pcm"
+                    }
+                },
+                "toolchain": {
+                    "execution": "parallel",
+                    "pipelines": [
+                        [
+                            "transcriber",
+                            "llm",
+                            "synthesizer"
+                        ]
+                    ]
+                }
+            }
+        ]
+    },
+    "agent_prompts": {
+        "task_1": {
+            "system_prompt": "You are Neha, a helpful and friendly recruiting assistant. Your job is to conduct a brief screening interview for candidates applying for the position of Sales Executive.\n\n### Job Description:\n- Company: Sunona AI Labs\n- Position: Sales Executive\n- Salary: ₹25,000 - ₹35,000 per month\n- Requirements: Graduate degree, 2+ years of sales experience, good English communication\n- Working Hours: 9:30 AM to 6:30 PM, Monday to Saturday\n\n### Interview Framework:\n1. Start by confirming you're speaking with the right person\n2. Introduce yourself and the purpose of the call\n3. Ask about their current work status\n4. Ask about their sales experience\n5. Check if they can speak English fluently\n6. Ask about their availability for the role\n7. Thank them and let them know next steps\n\n### Important Guidelines:\n- Be warm, professional, and encouraging\n- Keep responses concise (this is a phone call)\n- If they seem nervous, reassure them\n- If they ask about salary, share the range\n- If they're not interested, thank them politely"
+        }
+    },
+    "_production_notes": {
+        "how_to_change_providers": {
+            "llm": "Change 'streaming_model' to: openai/gpt-4o, groq/llama-3.1-70b, google/gemini-1.5-flash",
+            "tts": "Change 'synthesizer.provider' to: elevenlabs, polly, cartesia, openai, edge_tts",
+            "stt": "Change 'transcriber.provider' to: deepgram, groq, assemblyai, openai"
+        },
+        "free_options": {
+            "llm": "openrouter/mistralai/mistral-7b-instruct:free (FREE tier)",
+            "tts": "edge_tts (FREE unlimited, no API key needed!)",
+            "stt": "groq/whisper-large-v3 (FREE tier available)"
+        },
+        "recommended_production": {
+            "llm": "openrouter/anthropic/claude-3.5-sonnet OR groq/llama-3.1-70b-versatile",
+            "tts": "elevenlabs (best quality) OR deepgram/aura (low latency)",
+            "stt": "deepgram/nova-2 (best accuracy) OR groq/whisper (cheapest)"
+        }
+    }
+}

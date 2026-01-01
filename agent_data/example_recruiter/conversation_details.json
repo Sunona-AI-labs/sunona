@@ -1,0 +1,27 @@
+{
+    "job_title": "Sales Executive",
+    "company": "Sunona AI Labs",
+    "location": "Remote / India",
+    "salary_range": "₹25,000 - ₹35,000 per month",
+    "requirements": [
+        "Graduate degree (any field)",
+        "2+ years of B2B sales experience",
+        "Excellent English communication skills",
+        "Experience with CRM tools preferred"
+    ],
+    "working_hours": "9:30 AM - 6:30 PM",
+    "working_days": "Monday to Saturday",
+    "benefits": [
+        "Health insurance",
+        "Performance bonuses",
+        "Work from home flexibility",
+        "Training and development"
+    ],
+    "interview_questions": [
+        "Tell me about your current role",
+        "How many years of sales experience do you have?",
+        "Can you describe a successful sale you closed recently?",
+        "Are you comfortable with the working hours?",
+        "When can you join if selected?"
+    ]
+}

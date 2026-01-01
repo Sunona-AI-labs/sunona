@@ -8,6 +8,7 @@ Features:
 - WebSocket real-time chat
 - Playground API (no-code tools)
 - WebRTC browser calling
+- Multi-tenant organizations
 - Rate limiting
 - Structured logging
 - Health checks
@@ -87,7 +88,7 @@ async def lifespan(app: FastAPI):
         return ComponentHealth(
             name="agents_store",
             status=HealthStatus.HEALTHY,
-            message=f"{len(agents_store)} agents loaded",
+            message="Agent store connected",
         )
     
     health_check.register("agents_store", check_agents_store)
@@ -121,8 +122,11 @@ app.add_middleware(
 )
 
 # Optional Billing Middleware
-if BillingMiddleware:
-    app.add_middleware(BillingMiddleware)
+# NOTE: BillingMiddleware is a utility class for billing operations,
+# NOT a Starlette HTTP middleware. It should be used directly in routes,
+# not via app.add_middleware(). Leaving this commented for clarity.
+# if BillingMiddleware:
+#     app.add_middleware(BillingMiddleware)
 
 
 # =============================================================================
@@ -377,8 +381,127 @@ async def list_agents(
 app.include_router(router_agents)
 
 
-
 # =============================================================================
+# Telephony Endpoints (Make Calls) TWILIO server intigration starts
+# =============================================================================
+
+# Try to import Twilio handler
+try:
+    from sunona.telephony.twilio_handler import TwilioHandler
+    TWILIO_AVAILABLE = True
+except ImportError:
+    TWILIO_AVAILABLE = False
+    TwilioHandler = None
+
+# Global Twilio handler (initialized lazily)
+_twilio_handler = None
+
+def get_twilio_handler():
+    """Get or create Twilio handler."""
+    global _twilio_handler
+    if _twilio_handler is None and TWILIO_AVAILABLE:
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        phone_number = os.getenv("TWILIO_PHONE_NUMBER")
+        webhook_url = os.getenv("TWILIO_WEBHOOK_URL", "http://localhost:8000")
+        
+        if account_sid and auth_token:
+            try:
+                _twilio_handler = TwilioHandler(
+                    account_sid=account_sid,
+                    auth_token=auth_token,
+                    phone_number=phone_number,
+                    webhook_base_url=webhook_url,
+                )
+                logger.info("Twilio handler initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Twilio: {e}")
+    return _twilio_handler
+
+
+@app.post("/make-call")
+async def make_call(
+    to: str,
+    agent_id: str = "default",
+    api_key: APIKey = Depends(get_api_key),
+):
+    """
+    Make an outbound phone call using an agent.
+    
+    Args:
+        to: Phone number to call (E.164 format, e.g., +1234567890)
+        agent_id: Agent ID to use for the call
+        
+    Returns:
+        Call SID and status
+    """
+    # Ensure phone number starts with +
+    if not to.startswith("+"):
+        to = f"+{to}"
+    
+    # Check if agent exists
+    agent_data = await agents_store.get(agent_id)
+    if not agent_data and agent_id != "default":
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    
+    # Get Twilio handler
+    twilio = get_twilio_handler()
+    
+    if not twilio:
+        # Return helpful message if Twilio not configured
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "twilio_not_configured",
+                "message": "Twilio is not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in your .env file.",
+                "required_env_vars": [
+                    "TWILIO_ACCOUNT_SID",
+                    "TWILIO_AUTH_TOKEN", 
+                    "TWILIO_PHONE_NUMBER",
+                    "TWILIO_WEBHOOK_URL (optional)"
+                ],
+                "docs": "https://www.twilio.com/console"
+            }
+        )
+    
+    try:
+        # Initiate the call
+        call_sid = twilio.initiate_call(
+            to_number=to,
+            agent_id=agent_id,
+        )
+        
+        logger.info(f"Call initiated: {call_sid} to {to} with agent {agent_id}")
+        
+        return {
+            "success": True,
+            "call_sid": call_sid,
+            "to": to,
+            "from": os.getenv("TWILIO_PHONE_NUMBER"),
+            "agent_id": agent_id,
+            "status": "initiated",
+        }
+    except Exception as e:
+        logger.error(f"Failed to make call: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/calls")
+async def list_calls(api_key: APIKey = Depends(get_api_key)):
+    """List active calls."""
+    twilio = get_twilio_handler()
+    if not twilio:
+        return {"calls": [], "message": "Twilio not configured"}
+    
+    return {
+        "calls": list(getattr(twilio, '_active_calls', {}).keys())
+    }
+
+
+
+#twilio server intigration finish  
+
+
 # WebSocket Chat Endpoint
 # =============================================================================
 
@@ -399,10 +522,10 @@ async def websocket_chat(websocket: WebSocket, agent_id: str):
     organization_id = agent_data.get("organization_id")
     user_id = agent_data.get("created_by")
     
-    # Enforce Billing if available
+    # Enforce Billing (if billing module is available)
     if BillingMiddleware and organization_id:
-        billing_middleware = BillingMiddleware()
         try:
+            billing_middleware = BillingMiddleware()
             await billing_middleware.check_balance(organization_id)
         except Exception as e:
             await websocket.accept()
@@ -412,6 +535,7 @@ async def websocket_chat(websocket: WebSocket, agent_id: str):
             })
             await websocket.close()
             return
+
 
     # Use professional WebSocketManager
     connection = await ws_manager.connect(

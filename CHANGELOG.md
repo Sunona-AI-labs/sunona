@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.1] - 2026-01-01
 
+### Changed
+
+**📁 Repository Organization**
+- Moved `sunona-api-collection.json` from `docs/` to `resources/api/` for better organization.
+- Updated all internal documentation links to reflect the new location.
+
 ### Fixed
 
 **🛠️ Utility Scripts Robustness**

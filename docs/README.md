@@ -17,7 +17,7 @@ Welcome to the Sunona documentation! This folder contains all technical docs, gu
 ## 🧪 API Testing
 
 ### Insomnia/Postman Collection
-Import `sunona-api-collection.json` into Insomnia or Postman for pre-configured API requests.
+Import `resources/api/sunona-api-collection.json` into Insomnia or Postman for pre-configured API requests.
 
 ### Quick Test (Windows)
 ```powershell

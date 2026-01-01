@@ -126,7 +126,7 @@ curl.exe -X POST "http://localhost:8000/make-call?to=%2B917075xxxxxx&agent_id=f4
 
 ### Import Collection
 1. Open Insomnia or Postman
-2. Import `docs/sunona-api-collection.json`
+2. Import `resources/api/sunona-api-collection.json`
 3. Set environment variables:
    - `BASE_URL`: `http://localhost:8000`
    - `API_KEY`: Your API key

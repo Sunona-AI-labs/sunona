@@ -1,0 +1,18 @@
+{
+    "_comment": "Maps phone numbers to user profiles for personalized AI greetings.",
+    "+919876543210": {
+        "first_name": "Rahul",
+        "last_name": "Sharma",
+        "honorific": "Mr."
+    },
+    "+919898989898": {
+        "first_name": "Priya",
+        "last_name": "Patel",
+        "honorific": "Ms."
+    },
+    "+917075488154": {
+        "first_name": "pawar",
+        "last_name": "sathya",
+        "honorific": "Mr."
+    }
+}
