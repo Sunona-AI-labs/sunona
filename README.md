@@ -6,10 +6,10 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python"></a>
-  <a href="https://github.com/Sunona-AI-labs/sunona/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/Python-3.9+-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg" alt="Platform">
-  <a href="https://github.com/Sunona-AI-labs/sunona/stargazers"><img src="https://img.shields.io/github/stars/Sunona-AI-labs/sunona?style=social" alt="GitHub Stars"></a>
+  <img src="https://img.shields.io/github/stars/Sunona-AI-labs/sunona?style=social" alt="GitHub Stars">
 </p>
 
 ---
@@ -25,7 +25,9 @@
 | **🤖 AI Agents** | 7 types: Contextual, Extraction, Graph, Knowledge Base, Webhook, Summarization, Adaptive |
 | **📚 Knowledge Base** | Universal builder: Website, PDF, DOCX, TXT, JSON, CSV with auto-agent generation |
 | **🔄 Smart Transfer** | Intelligent call transfer to humans when AI can't answer |
-| **️ Resilience** | Hardened VAD, circuit breakers for LLM streams, persistent Redis AgentStore, graceful WebSockets |
+| **💳 Billing** | Pay-as-you-go, auto-pay, usage metering, balance warnings, non-blocking SMTP notifications |
+| **🛡️ Security** | Multi-tenant isolation, O(1) auth lookups, organization-scoped resource gating, secured SSO |
+| **⚡ Resilience** | Hardened VAD, circuit breakers for LLM streams, persistent Redis AgentStore, graceful WebSockets |
 | **🎙️ WebRTC** | Fully bidirectional browser calling with ultra-low latency audio response feedback |
 | **🌍 Languages** | 20+ languages including Hindi, Tamil, Telugu, Bengali (via Sarvam AI) |
 | **🛡️ Content Safety** | Multilingual profanity detection (30+ languages) with empathetic responses |
@@ -200,14 +202,63 @@ if result["transfer"]:
 |---------|-----------------|
 | 🔄 **Out-of-context** | AI doesn't know the answer (2+ times) |
 | 👤 **Customer request** | "Talk to a human", "Get me a manager" |
+| ⚠️ **Sensitive topics** | Refunds, complaints, billing issues |
 | 😤 **Frustration** | "This is useless", "Not helpful" |
 | ⏱️ **Low confidence** | AI confidence drops below threshold |
 
 ---
 
+## 💳 Billing System
+
+Complete SaaS billing with **wallet balance, auto-pay, and usage tracking**:
+
+### Pricing
+
+| Service | Rate |
+|---------|------|
+| **STT** (Deepgram Nova-2) | $0.0145/min |
+| **LLM** (GPT-4o-mini) | $0.00015/1K tokens |
+| **LLM** (OpenRouter Free) | **FREE** |
+| **TTS** (ElevenLabs) | $0.18/1K chars |
+| **Telephony** (Twilio) | $0.022/min |
+| **Platform Fee** | $0.01/min |
+
+### Balance Warning System
+
+| Balance | Level | Action |
+|---------|-------|--------|
+| **> $50** | ✅ Healthy | No action |
+| **$20-50** | 💡 Moderate | Daily reminder |
+| **$10-20** | ⚠️ Low | Warning every 4 hours |
+| **$5-10** | 🚨 Critical | Warning every hour |
+| **< $5** | ❌ Depleted | **Service blocked** |
+
+### Email & Webhook Notifications
+
+```python
+from sunona.billing import send_balance_warning
+
+# Send notification when balance is low
+await send_balance_warning(
+    account_id="acc_123",
+    email="user@example.com",
+    balance=15.00,
+    warning_level="low",
+    webhook_url="https://your-app.com/webhook",
+)
+```
+
+### Auto-Pay
+
+When auto-pay is enabled and balance drops below threshold:
+1. Card is automatically charged
+2. Wallet is topped up
+3. Email confirmation sent
+4. Service continues uninterrupted
+
 ---
 
-##  Telephony Integration
+## 📞 Telephony Integration
 
 ### Make Phone Calls with Twilio
 
@@ -363,10 +414,13 @@ if profanity.contains_profanity(transcribed_text):
 │                          ▼
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │            HARDENED CORE (Production Ready)                 ││
-│  │  Circuit Breakers │ Graceful Failover │ High Reliability    ││
+│  │  Circuit Breakers │ Graceful Failover │ O(1) Auth Lookups   ││
 │  └─────────────────────────────────────────────────────────────┘│
 │                          ▼                                      │
 │  ┌─────────────────────────────────────────────────────────────┐│
+│  │            BILLING & MULTI-TENANCY SYSTEM                   ││
+│  │  Balance Check → Usage Meter → Tenant Registry → Auto-Pay    ││
+│  ├─────────────────────────────────────────────────────────────┤│
 │  │            PERSISTENCE & NOTIFICATIONS                      ││
 │  │  Redis AgentStore │ aiosmtplib Email │ Webhook Alerts        ││
 │  └─────────────────────────────────────────────────────────────┘│
@@ -376,7 +430,7 @@ if profanity.contains_profanity(transcribed_text):
 ### 🛡️ Production Hardening (Audit v0.2.0)
 The Sunona core has undergone a comprehensive production audit to ensure high reliability:
 - **Persistent AgentStore**: Switched from in-memory to a Redis-backed storage layer for enterprise-grade availability and state persistence.
-- **Recursive Deadlock Prevention**: Switched to `RLock` for all state transactions.
+- **Recursive Deadlock Prevention**: Switched to `RLock` for all financial and state transactions.
 - **O(1) Authentication**: Hash-indexed API key validation for sub-millisecond overhead.
 - **Circuit Breaker Pattern**: Automatic fallback and fail-fast logic for all LLM and STT provider streams.
 - **Non-Blocking Notifications**: High-performance SMTP delivery via `aiosmtplib` and async webhooks.
@@ -416,7 +470,11 @@ sunona/
 │   ├── knowledge/              # 📚 Knowledge Base
 │   │   ├── knowledge_builder.py
 │   │   └── website_builder.py
-│   └── smart_transfer.py   # Intelligent handoff
+│   ├── billing/                # 💳 Billing System
+│   │   ├── billing_manager.py
+│   │   ├── balance_warning.py  # $20 threshold warnings
+│   │   ├── notifications.py    # Email/webhook alerts
+│   │   └── middleware.py
 │   ├── input_handlers/         # 📥 Audio input
 │   ├── output_handlers/        # 📤 Audio output
 │   ├── models.py               # Pydantic models
@@ -444,8 +502,24 @@ See `.env.example` for all available variables. Key categories:
 | **Database** | PostgreSQL, Redis |
 | **Vector Stores** | ChromaDB, Pinecone, Qdrant |
 | **Email** | SMTP settings for notifications |
+| **Billing** | Stripe integration |
 
 ---
+
+## 📊 Cost Comparison
+
+| Feature | Sunona | Competitors |
+|---------|--------|-------------|
+| Platform Fee | $0.01/min | $0.02-0.05/min |
+| Free LLM Options | ✅ OpenRouter | ❌ No |
+| Indian Languages | ✅ Sarvam AI | ❌ Limited |
+| Smart Transfer | ✅ Included | ❌ Extra cost |
+| Knowledge Builder | ✅ Universal | ❌ Basic |
+| Auto Agent | ✅ Yes | ❌ No |
+| Balance Warnings | ✅ Email + Webhook | ❌ No |
+| Auto-Pay | ✅ Yes | ❌ Limited |
+
+**Sunona is 30-50% cheaper with more features!**
 
 ---
 
