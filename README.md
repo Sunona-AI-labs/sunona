@@ -104,14 +104,12 @@ The `simple_assistant.py` is a complete hands-free voice assistant with:
 Use these scripts from the root directory to interact with the Sunona API easily. They handle authentication and URL encoding for you.
 
 **start the python sunona server** : python -m sunona.server 
-# dont close this python sunona.server it has intigrated server with twilio server for call services using api's
+**dont close this : python -m sunona.server it has intigrated server with twilio server for call services using api's**
 
 | Script | Purpose | Command |
 |--------|---------|---------|
 | **Health Check** | Verify server connection | `.\scripts\test_api.bat` |
-
 | **Create Agent** | Register a new AI agent | `.\scripts\create_agent.bat` |
-
 | **Make Call** | Initiate a phone call | `.\scripts\make_call.bat` |
 
 > [!TIP]
