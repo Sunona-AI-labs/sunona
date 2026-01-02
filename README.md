@@ -25,8 +25,9 @@ https://github.com/user-attachments/assets/7f9da85f-72e3-4168-8021-eaf311e6fa3a
 **1. Environment Variables (`.env`):**
 
 ```bash
-# LLM (Brain) - https://openrouter.ai/keys
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx
+# LLM (Brain) - Primary: Groq (fastest), Fallback: OpenRouter
+GROQ_API_KEY=gsk_xxxxxxxx              # https://console.groq.com/keys
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx   # https://openrouter.ai/keys (fallback)
 
 # STT (Ears) - https://console.deepgram.com/
 DEEPGRAM_API_KEY=xxxxxxxx
