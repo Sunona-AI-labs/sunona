@@ -14,6 +14,78 @@
 
 ---
 
+## 🎬 Demo
+
+https://github.com/user-attachments/assets/7f9da85f-72e3-4168-8021-eaf311e6fa3a
+
+> 📞 **This demo showcases Sunona's Twilio integration** — an AI campus recruiter (Priya) making real phone calls with voice conversation.
+
+### 🔧 Required Setup to Replicate This Demo
+
+**1. Environment Variables (`.env`):**
+
+```bash
+# LLM (Brain) - https://openrouter.ai/keys
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx
+
+# STT (Ears) - https://console.deepgram.com/
+DEEPGRAM_API_KEY=xxxxxxxx
+
+# TTS (Voice) - https://elevenlabs.io/app/settings/api-keys
+ELEVENLABS_API_KEY=xxxxxxxx
+
+# Telephony - https://www.twilio.com/console
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
+TWILIO_WEBHOOK_URL=https://your-ngrok-url.ngrok-free.app
+
+# Ngrok (for local testing) - https://dashboard.ngrok.com/
+NGROK_AUTH_TOKEN=xxxxxxxx
+```
+
+**2. Agent Configuration Used:**
+- **Config**: [`agent_data/example_recruiter/config_minimal.json`](agent_data/example_recruiter/config_minimal.json)
+- **Agent Name**: Priya (Campus Recruiter)
+- **Providers**: Deepgram Nova-2 (STT) → LLM → ElevenLabs Turbo (TTS)
+
+**3. Run the Demo (Step-by-Step):**
+
+> 💡 All scripts use **curl** for API testing — no Postman required!
+
+```powershell
+# Step 1: Start ngrok tunnel (Terminal 1)
+ngrok http 8000
+
+# Step 2: Start Sunona server (Terminal 2)
+python -m sunona.server
+
+# Step 3: Health check - verify server is running (Terminal 3)
+.\scripts\test_api.bat
+
+# Step 4: View agent details, prompt, users, etc.
+.\scripts\view_agent.bat
+
+# Step 5: Create agent - ⚠️ COPY THE UNIQUE agent_id FROM OUTPUT!
+.\scripts\create_agent.bat
+
+# Step 6: Make call via Twilio - paste agent_id when prompted
+.\scripts\make_call.bat
+```
+
+| Step | Script | Purpose |
+|------|--------|---------|
+| 1 | `ngrok http 8000` | Expose local server to internet |
+| 2 | `python -m sunona.server` | Start the Sunona API server |
+| 3 | [`test_api.bat`](scripts/test_api.bat) | Health check - verify server connection |
+| 4 | [`view_agent.bat`](scripts/view_agent.bat) | View agent config, prompt, and users |
+| 5 | [`create_agent.bat`](scripts/create_agent.bat) | Create agent → **copy the `agent_id`** |
+| 6 | [`make_call.bat`](scripts/make_call.bat) | Make Twilio call with the agent |
+
+> � See [`scripts/README.md`](scripts/README.md) for detailed script documentation.
+
+---
+
 ## ✨ Features at a Glance
 
 | Category | Capabilities |
