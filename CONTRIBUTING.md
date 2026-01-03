@@ -9,6 +9,7 @@ We welcome contributions from the community, whether it's bug reports, feature r
 ## 📋 Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
+- [Master Branch Protection](#-master-branch-protection--enforcement)
 - [Getting Started](#getting-started)
 - [How to Contribute](#how-to-contribute)
   - [Reporting Bugs](#-reporting-bugs)
@@ -29,6 +30,62 @@ By participating in this project, you agree to maintain a respectful and inclusi
 - Welcome newcomers and help them get started
 - Focus on what is best for the community
 - Show empathy towards other community members
+
+---
+
+## 🛡️ Master Branch Protection & Enforcement
+
+The `master` branch is protected with industry-level rules. All contributors must follow these guidelines when contributing code.
+
+### 🔐 Branch Access Restrictions
+- **No direct pushes** → All changes must go through Pull Requests (PRs).
+- **No branch deletions** → `master` cannot be deleted.
+- **No force pushes** → History cannot be overwritten.
+- **No unauthorized updates/creations** → Only maintainers or CI/CD bots can bypass.
+
+### 📜 Commit & Merge Requirements
+- **Linear history required** → No merge commits; use rebase or squash.
+- **Merge queue enforced** → PRs are merged in order via queue.
+- **Concurrency**: 5 PRs can run checks at once.
+- **Group size**: 1–5 PRs per batch.
+- **Wait time**: 5 minutes before merging if batching.
+- **All PRs must pass checks** before merging.
+- **Signed commits required** → All commits must be GPG/S/MIME signed.
+- **Status checks required** → PRs must pass:
+  - ✅ Build
+  - ✅ Unit tests
+  - ✅ Linting
+  - ✅ Integration tests
+
+### 🛡️ Security & Code Quality
+- **Code scanning required** → Tools like CodeQL must report clean results.
+- **Code quality checks required** → PRs blocked if issues are High or Critical.
+- **Copilot code review enabled** → AI-assisted review runs automatically.
+- **Static analysis tools integrated** → ESLint, PyLint, SonarQube (if configured).
+
+### 🚀 Deployment Rules
+- **Require deployments to succeed** → PRs must deploy successfully before merging.
+- **Environments**:
+  - `staging` → Pre-production testing
+  - `production` → Live deployment
+- **CI/CD bots handle deployments**; contributors cannot bypass.
+
+### 🏢 Enterprise Restrictions (if applicable)
+- **Commit metadata restricted** → Must use valid email domains and proper commit messages.
+- **Branch names restricted** → Unsafe or ambiguous names are blocked.
+
+### 👥 Bypass List
+- Only trusted maintainers and CI/CD bots (e.g., `github-actions[bot]`) have bypass rights.
+- General contributors do not have bypass permissions.
+
+### ✅ Contributor Workflow
+1. **Fork the repo** → Work on your own branch.
+2. **Create a feature branch** → Example: `feature/voice-agent`.
+3. **Commit with signatures** → Ensure commits are signed.
+4. **Push branch to your fork**.
+5. **Open a Pull Request** → Target `master`.
+6. **Pass all checks** → Build, tests, lint, code scanning, deployment.
+7. **Wait for merge queue** → Your PR will merge automatically once approved.
 
 ---
 
