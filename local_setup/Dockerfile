@@ -7,7 +7,7 @@
 # ==========================================================================
 # Stage 1: Dependencies (cached layer)
 # ==========================================================================
-FROM python:3.11-slim AS deps
+FROM python:3.14-slim AS deps
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # ==========================================================================
 # Stage 2: Production image
 # ==========================================================================
-FROM python:3.11-slim AS production
+FROM python:3.14-slim AS production
 
 WORKDIR /app
 
