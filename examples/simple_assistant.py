@@ -154,7 +154,7 @@ class SimpleVoiceAssistant:
         self.elevenlabs_voice_id = ELEVENLABS_VOICES.get(elevenlabs_voice, "EXAVITQu4vr4xnSDxMaL")
         self.messages = []
         self.sample_rate = 16000
-        self.energy_threshold = 150  # Lower = more sensitive
+        self.energy_threshold = 200  # Lower = more sensitive
         
         # Determine TTS provider
         self.use_elevenlabs = bool(elevenlabs_key) and ELEVENLABS_OK

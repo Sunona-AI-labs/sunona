@@ -41,7 +41,16 @@ Documentation = "https://github.com/sap1119/sunona#readme"
 "Bug Tracker" = "https://github.com/sap1119/sunona/issues"
 
 [project.optional-dependencies]
-dev = ["pip-tools", "pytest", "pytest-asyncio", "black", "ruff"]
+dev = [
+    "pip-tools",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.0",
+    "black>=24.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+]
 aws = ["boto3>=1.34.0"]
 azure = ["azure-cognitiveservices-speech>=1.30.0"]
 google = ["google-cloud-speech>=2.21.0"]
@@ -75,3 +84,31 @@ target-version = ['py310', 'py311', 'py312']
 line-length = 100
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests",
+    "slow: Slow tests",
+    "requires_api: Tests requiring real API keys",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["venv", "build", "dist"]
+
+[tool.coverage.run]
+source = ["sunona"]
+omit = ["tests/*", "venv/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

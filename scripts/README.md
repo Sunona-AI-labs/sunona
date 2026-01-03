@@ -22,20 +22,28 @@ This folder contains helper scripts to quickly interact with the Sunona Voice AI
 **Purpose:** Verifies that the server is up and responsive.
 - **Run this first** to ensure connection.
 - **Endpoints tested**: Root, `/health`, `/health/liveness`, and `/agents`.
-- **Command:** `.\scripts\test_api.bat`
+- **Command (Windows):** `.\scripts\test_api.bat`
+- **Command (Linux/macOS):** `bash ./scripts/test_api.sh`
 
 ### 2. `create_agent.bat` (Create AI Agent)
 **Purpose:** Registers a new AI voice agent in the system.
 - **Config used**: `agent_data/example_recruiter/config_minimal.json` (currently configured as "Priya", the Campus Recruiter).
 - **Output**: Returns a JSON object with a unique `agent_id`.
 - **Action**: **Copy the `agent_id`** from the output; you will need it to make calls.
-- **Command:** `.\scripts\create_agent.bat`
+- **Command (Windows):** `.\scripts\create_agent.bat`
+- **Command (Linux/macOS):** `bash ./scripts/create_agent.sh`
 
 ### 3. `make_call.bat` (Initiate Phone Call)
 **Purpose:** Triggers an outbound phone call using a specific agent.
 - **Requirements**: Requires a valid `agent_id` and a phone number in E.164 format (e.g., `+917075xxxxxx`).
 - **Interactive**: The script will prompt you for the phone number and agent ID if not provided as arguments.
-- **Command:** `.\scripts\make_call.bat`
+- **Command (Windows):** `.\scripts\make_call.bat`
+- **Command (Linux/macOS):** `bash ./scripts/make_call.sh`
+
+### 4. `view_agent.bat` (View Agent Details)
+**Purpose:** Displays the local configuration including agent name, system prompt, and user profiles.
+- **Command (Windows):** `.\scripts\view_agent.bat`
+- **Command (Linux/macOS):** `bash ./scripts/view_agent.sh`
 
 ---
 
