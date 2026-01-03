@@ -42,7 +42,7 @@ jobs:
         run: python scripts/update_stars.py
       
       - name: 📝 Commit and create pull request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "🌟 auto: update stars and growth chart"
