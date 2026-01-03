@@ -41,18 +41,20 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: python scripts/update_stars.py
       
-      - name: 📝 Commit and push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          
-          if git diff --quiet README.md stars_history.json 2>/dev/null; then
-            echo "✅ No changes detected"
-          else
-            git add README.md stars_history.json 2>/dev/null || true
-            git commit -m "🌟 auto: update stars and growth chart" --allow-empty
-            git push origin HEAD:${{ github.ref }}
-          fi
+      - name: 📝 Commit and create pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "🌟 auto: update stars and growth chart"
+          branch: auto/update-stars
+          delete-branch: true
+          title: "📊 Automated: Update GitHub stars and growth chart"
+          body: |
+            This is an automated pull request to update the GitHub star count and growth chart in the README and history.
+            
+            - Updated `README.md`
+            - Updated `stars_history.json`
+          base: master
       
       - name: ✅ Workflow completed
         run: |

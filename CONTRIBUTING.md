@@ -10,6 +10,7 @@ We welcome contributions from the community, whether it's bug reports, feature r
 
 - [Code of Conduct](#code-of-conduct)
 - [Master Branch Protection](#-master-branch-protection--enforcement)
+- [Handling Rule Violations (GH013)](#%EF%B8%8F-handling-repository-rule-violations-gh013)
 - [Getting Started](#getting-started)
 - [How to Contribute](#how-to-contribute)
   - [Reporting Bugs](#-reporting-bugs)
@@ -86,6 +87,43 @@ The `master` branch is protected with industry-level rules. All contributors mus
 5. **Open a Pull Request** → Target `master`.
 6. **Pass all checks** → Build, tests, lint, code scanning, deployment.
 7. **Wait for merge queue** → Your PR will merge automatically once approved.
+
+---
+
+## 🛠️ Handling Repository Rule Violations (GH013)
+
+If your push is declined with the error `GH013: Repository rule violations found`, it means you are attempting a direct push to a protected branch (like `master`).
+
+### 🔍 How to Fix
+
+1. **Review Branch Protection Rules**:
+   Visit the [Repository Rules Page](https://github.com/Sunona-AI-labs/sunona/rules?ref=refs/heads/master) to see common restrictions (pull requests, signed commits, status checks).
+
+2. **Adapt Your Workflow**:
+   If direct pushes are not allowed, change your workflow (or GitHub Actions) to open a pull request instead.
+
+   **Example (GitHub Actions):**
+   ```yaml
+   - name: Commit changes
+     run: |
+       git config user.name "github-actions[bot]"
+       git config user.email "github-actions[bot]@users.noreply.github.com"
+       git checkout -b update-branch
+       git add .
+       git commit -m "update changes [skip ci]"
+       git push origin update-branch
+
+   - name: Create Pull Request
+     uses: peter-evans/create-pull-request@v6
+     with:
+       token: ${{ secrets.GITHUB_TOKEN }}
+       branch: update-branch
+       title: "Automated Update"
+       base: master
+   ```
+
+3. **Ensure Compliance**:
+   Ensure all commits are **GPG/S/MIME signed** and pass all required status checks before attempting to merge.
 
 ---
 
