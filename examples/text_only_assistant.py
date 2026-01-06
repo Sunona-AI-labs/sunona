@@ -26,18 +26,38 @@ import re
 
 
 def clean_llm_tokens(text: str) -> str:
-    """Remove special tokens from LLM output."""
+    """Remove special tokens and artifacts from LLM output, fix spacing issues."""
     if not text:
         return ""
+    
+    # Remove special tokens (handle both with and without angle brackets)
     patterns = [
-        r'\s*<s>\s*', r'\s*</s>\s*',
-        r'\s*<\|im_start\|>\s*', r'\s*<\|im_end\|>\s*',
-        r'\s*\[INST\]\s*', r'\s*\[/INST\]\s*',
-        r'\s*\[OUT\]\s*', r'\s*\[/OUT\]\s*',
+        r'^\s*<s>\s*',      # Start-of-sequence token at beginning
+        r'\s*</s>\s*$',     # End-of-sequence token at end
+        r'<s>',             # Any remaining <s> tokens
+        r'</s>',            # Any remaining </s> tokens
+        r'<\|im_start\|>',
+        r'<\|im_end\|>',
+        r'\[INST\]',
+        r'\[/INST\]',
+        r'\[OUT\]',
+        r'\[/OUT\]',
+        r'<\|assistant\|>',
+        r'<\|user\|>',
+        r'<\|system\|>',
+        r'###\s*Example\s*\d*',  # Remove "### Example" artifacts
+        r'###\s*\w+\s*\d*$',     # Remove trailing markdown headers
     ]
     for pattern in patterns:
-        text = re.sub(pattern, '', text)
-    return text
+        text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+    
+    # Fix common spacing issues (word boundaries without spaces)
+    text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+    text = re.sub(r'([a-z][.!?])([A-Z])', r'\1 \2', text)
+    text = re.sub(r'([.!?,;:])([A-Za-z])', r'\1 \2', text)
+    text = re.sub(r'\s+', ' ', text)
+    
+    return text.strip()
 
 
 class SimpleChat:
@@ -83,6 +103,9 @@ class SimpleChat:
             return ""
         
         response_text = "".join(full_response)
+        # Clean the final response (fixes spacing and removes artifacts)
+        response_text = clean_llm_tokens(response_text)
+        print(response_text, end="", flush=True)  # Print cleaned response
         self.messages.append({"role": "assistant", "content": response_text})
         return response_text
     
@@ -125,10 +148,8 @@ class SimpleChat:
                             content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
                             
                             if content:
-                                content = clean_llm_tokens(content)
-                                if content:
-                                    print(content, end="", flush=True)
-                                    full_response.append(content)
+                                # Don't clean individual tokens - preserve spaces
+                                full_response.append(content)
                         except json.JSONDecodeError:
                             continue
         

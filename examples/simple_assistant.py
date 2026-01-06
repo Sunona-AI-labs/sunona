@@ -26,7 +26,7 @@ import sys
 import json
 import asyncio
 import tempfile
-# import time  # Unused
+import uuid
 import wave
 import io
 
@@ -41,18 +41,42 @@ import re
 
 
 def clean_llm_tokens(text: str) -> str:
-    """Remove special tokens from LLM output."""
+    """Remove special tokens and artifacts from LLM output, fix spacing issues."""
     if not text:
         return ""
+    
+    # Remove special tokens (handle both with and without angle brackets)
     patterns = [
-        r'\s*<s>\s*', r'\s*</s>\s*',
-        r'\s*<\|im_start\|>\s*', r'\s*<\|im_end\|>\s*',
-        r'\s*\[INST\]\s*', r'\s*\[/INST\]\s*',
-        r'\s*\[OUT\]\s*', r'\s*\[/OUT\]\s*',
+        r'^\s*<s>\s*',      # Start-of-sequence token at beginning
+        r'\s*</s>\s*$',     # End-of-sequence token at end
+        r'<s>',             # Any remaining <s> tokens
+        r'</s>',            # Any remaining </s> tokens
+        r'<\|im_start\|>',
+        r'<\|im_end\|>',
+        r'\[INST\]',
+        r'\[/INST\]',
+        r'\[OUT\]',
+        r'\[/OUT\]',
+        r'<\|assistant\|>',
+        r'<\|user\|>',
+        r'<\|system\|>',
+        r'###\s*Example\s*\d*',  # Remove "### Example" artifacts
+        r'###\s*\w+\s*\d*$',     # Remove trailing markdown headers
     ]
     for pattern in patterns:
-        text = re.sub(pattern, '', text)
-    return text
+        text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+    
+    # Fix common spacing issues (word boundaries without spaces)
+    # Add space between lowercase letter followed by uppercase (e.g., "HelloWorld" -> "Hello World")
+    text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+    # Add space between letter and number when it looks like a sentence (e.g., "topic1" stays, but "today?What" fixes)
+    text = re.sub(r'([a-z][.!?])([A-Z])', r'\1 \2', text)
+    # Fix missing space after punctuation
+    text = re.sub(r'([.!?,;:])([A-Za-z])', r'\1 \2', text)
+    # Fix multiple spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    return text.strip()
 
 # Audio recording
 try:
@@ -113,7 +137,7 @@ except ImportError:
 
 # Multilingual voice mapping
 LANGUAGE_VOICES = {
-    "en": "en-US-JennyNeural",       # English
+    "en": "en-US-AriaNeural",        # English (premium female voice)
     "hi": "hi-IN-SwaraNeural",       # Hindi
     "es": "es-ES-ElviraNeural",      # Spanish
     "fr": "fr-FR-DeniseNeural",      # French
@@ -142,7 +166,7 @@ class SimpleVoiceAssistant:
         openrouter_key: str = None,
         deepgram_key: str = None,
         elevenlabs_key: str = None,
-        voice: str = "en-US-JennyNeural",
+        voice: str = "en-US-AriaNeural",  # Premium female voice (Edge TTS)
         elevenlabs_voice: str = "Bella"
     ):
         self.groq_key = groq_key
@@ -154,10 +178,11 @@ class SimpleVoiceAssistant:
         self.elevenlabs_voice_id = ELEVENLABS_VOICES.get(elevenlabs_voice, "EXAVITQu4vr4xnSDxMaL")
         self.messages = []
         self.sample_rate = 16000
-        self.energy_threshold = 200  # Lower = more sensitive
+        self.energy_threshold = 300  # Higher = less sensitive (reduces false triggers from noise)
         
-        # Determine TTS provider
-        self.use_elevenlabs = bool(elevenlabs_key) and ELEVENLABS_OK
+        # Use Edge TTS by default (free, unlimited, low latency)
+        # Set use_elevenlabs=True manually if you have an API key and prefer it
+        self.use_elevenlabs = False  # Disabled by default for faster response
         
         # Set system prompt
         self.messages.append({
@@ -173,7 +198,7 @@ You provide support in every aspect and are capable of excellent customer servic
 Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful and make every interaction positive."""
         })
     
-    def listen(self, max_duration=8, silence_duration=0.8):
+    def listen(self, max_duration=30, silence_duration=1.5):
         """Listen for speech with fast VAD - prints once, waits until speech."""
         print("\n🎤 Listening...", end="", flush=True)
         
@@ -226,8 +251,8 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
             
             # No speech detected - continue waiting silently (no new print)
     
-    def transcribe(self, wav_data):
-        """Transcribe audio using Deepgram."""
+    def transcribe(self, wav_data, retries: int = 1):
+        """Transcribe audio using Deepgram with retry logic."""
         print("📝 Transcribing...", end=" ", flush=True)
         
         url = "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true"
@@ -236,23 +261,32 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
             "Content-Type": "audio/wav"
         }
         
-        try:
-            with httpx.Client(timeout=10.0) as client:  # Fast timeout
-                response = client.post(url, headers=headers, content=wav_data)
-                response.raise_for_status()
-                
-                data = response.json()
-                text = data.get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])[0].get("transcript", "")
-                
-                if text:
-                    print(f'"{text}"')
-                else:
-                    print("(no speech)")
-                
-                return text
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            return ""
+        for attempt in range(retries + 1):
+            try:
+                with httpx.Client(timeout=5.0) as client:  # Fast 5s timeout
+                    response = client.post(url, headers=headers, content=wav_data)
+                    response.raise_for_status()
+                    
+                    data = response.json()
+                    text = data.get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])[0].get("transcript", "")
+                    
+                    if text:
+                        print(f'"{text}"')
+                    else:
+                        print("(no speech)")
+                    
+                    return text
+            except httpx.TimeoutException:
+                if attempt < retries:
+                    print(f"(retry {attempt + 1})...", end=" ", flush=True)
+                    continue
+                print("❌ Timeout")
+                return ""
+            except Exception as e:
+                print(f"❌ Error: {e}")
+                return ""
+        
+        return ""
     
     def check_profanity(self, text: str) -> tuple[bool, str]:
         """Check for profanity and return sympathetic response if needed."""
@@ -277,7 +311,7 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
         self.messages.append({"role": "user", "content": user_message})
         
         full_response = []
-        print("💭 Sunona: ", end="", flush=True)
+        print("💭 Sunona: ", end="", flush=True)  # Will print response after collecting
         
         # Try OpenRouter first (free Mistral 7B)
         if self.openrouter_key:
@@ -297,7 +331,7 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
                     "stream": True
                 }
                 
-                with httpx.Client(timeout=30.0) as client:
+                with httpx.Client(timeout=15.0) as client:  # Fast 15s timeout
                     with client.stream(
                         "POST",
                         "https://openrouter.ai/api/v1/chat/completions",
@@ -321,10 +355,9 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
                                     content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
                                     
                                     if content:
-                                        content = clean_llm_tokens(content)
-                                        if content:
-                                            print(content, end="", flush=True)
-                                            full_response.append(content)
+                                        # Don't clean individual tokens - preserve spaces
+                                        # Clean only the final joined response
+                                        full_response.append(content)
                                 except json.JSONDecodeError:
                                     continue
             except Exception as e:
@@ -348,7 +381,7 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
                     "stream": True
                 }
                 
-                with httpx.Client(timeout=15.0) as client:
+                with httpx.Client(timeout=10.0) as client:  # Fast 10s timeout
                     with client.stream(
                         "POST",
                         "https://api.groq.com/openai/v1/chat/completions",
@@ -372,7 +405,6 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
                                     content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
                                     
                                     if content:
-                                        print(content, end="", flush=True)
                                         full_response.append(content)
                                 except json.JSONDecodeError:
                                     continue
@@ -383,10 +415,15 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
         
         if not full_response:
             print("❌ No LLM response")
-        
-        print()
+        else:
+            # Print complete response (properly spaced, not streamed)
+            response_text = "".join(full_response).strip()
+            response_text = clean_llm_tokens(response_text)
+            print(response_text)
         
         response_text = "".join(full_response).strip()
+        # Final cleanup of any remaining tokens (handles accumulated edge cases)
+        response_text = clean_llm_tokens(response_text)
         if response_text:
             self.messages.append({"role": "assistant", "content": response_text})
         
@@ -410,7 +447,8 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
         
         try:
             print("🔊 Speaking...", end=" ", flush=True)
-            audio_file = os.path.join(tempfile.gettempdir(), "sunona_voice.mp3")
+            # Use unique filename to avoid Windows file locking issues
+            audio_file = os.path.join(tempfile.gettempdir(), f"sunona_voice_{uuid.uuid4().hex[:8]}.mp3")
             
             # Use ElevenLabs if API key is set
             if self.use_elevenlabs:
@@ -470,7 +508,7 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
         
         chunk_samples = int(self.sample_rate * 0.1)  # 100ms chunks
         consecutive_speech = 0
-        speech_threshold = 3  # Need 3 consecutive chunks of speech to trigger barge-in
+        speech_threshold = 5  # Need 5 consecutive chunks (500ms) of speech to trigger barge-in
         
         try:
             with sd.InputStream(samplerate=self.sample_rate, channels=1, dtype='int16') as stream:
@@ -478,7 +516,8 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
                     data, _ = stream.read(chunk_samples)
                     energy = np.sqrt(np.mean(data.astype(np.float32) ** 2))
                     
-                    if energy > self.energy_threshold * 1.5:  # Higher threshold to avoid false positives
+                    # Much higher threshold for barge-in to reduce false positives from noise
+                    if energy > self.energy_threshold * 2.5:
                         consecutive_speech += 1
                         if consecutive_speech >= speech_threshold:
                             return True  # User is speaking, barge-in!
@@ -513,7 +552,7 @@ Keep responses SHORT (1-2 sentences) for natural voice conversation. Be helpful 
             }
         }
         
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=15.0) as client:  # Fast 15s timeout
             response = client.post(url, headers=headers, json=body)
             response.raise_for_status()
             
