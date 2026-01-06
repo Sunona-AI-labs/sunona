@@ -16,6 +16,16 @@
 
 ## 🎬 Demo
 
+### 🎤 Voice Assistant Examples
+
+https://github.com/user-attachments/assets/613a9942-7c3b-48ba-8a26-9f9614430424
+
+> 🎙️ **This demo showcases Sunona's voice assistants** — `simple_assistant.py`, `voice_assistant.py`, and `text_only_assistant.py` with real-time STT, LLM, and TTS.
+
+---
+
+### 📞 Twilio Phone Call Demo
+
 https://github.com/user-attachments/assets/7f9da85f-72e3-4168-8021-eaf311e6fa3a
 
 > 📞 **This demo showcases Sunona's Twilio integration** — an AI campus recruiter (Priya) making real phone calls with voice conversation.
