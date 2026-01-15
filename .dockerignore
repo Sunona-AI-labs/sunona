@@ -79,6 +79,11 @@ tests/
 local_setup/
 !local_setup/requirements.txt
 
+# Frontend (Next.js website - 779MB with node_modules)
+sunona-website/
+node_modules/
+**/node_modules/
+
 # Large files
 *.mp3
 *.wav

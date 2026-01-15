@@ -1,0 +1,18 @@
+# Sunona Voice AI - ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sunona-config
+  namespace: sunona
+  labels:
+    app.kubernetes.io/name: sunona
+data:
+  SUNONA_HOST: "0.0.0.0"
+  SUNONA_PORT: "8000"
+  SUNONA_DEBUG: "false"
+  SUNONA_LOG_LEVEL: "INFO"
+  REDIS_URL: "redis://redis-service:6379/0"
+  DATABASE_URL: "postgresql://sunona:sunona@postgres-service:5432/sunona"
+  OPENROUTER_MODEL: "mistralai/mistral-7b-instruct:free"
+  DEFAULT_ORGANIZATION_ID: "org_default"
+  ENFORCE_ORGANIZATION_ISOLATION: "true"

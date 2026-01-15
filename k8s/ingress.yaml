@@ -1,0 +1,74 @@
+# Sunona Voice AI - Ingress (NGINX Ingress Controller)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sunona-ingress
+  namespace: sunona
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: sunona-api-service
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.sunona.ai
+    secretName: sunona-tls
+  rules:
+  - host: api.sunona.ai
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sunona-api-service
+            port:
+              number: 8000
+---
+# Network Policy - Restrict traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sunona-network-policy
+  namespace: sunona
+spec:
+  podSelector:
+    matchLabels:
+      app: sunona-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to: {}  # Allow external API calls (LLM, STT, TTS providers)
