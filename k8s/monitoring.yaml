@@ -1,0 +1,32 @@
+# Sunona Voice AI - Prometheus Monitoring
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: sunona-servicemonitor
+  namespace: sunona
+  labels:
+    app.kubernetes.io/name: sunona
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: sunona-api
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+---
+# Pod Monitoring for detailed metrics
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: sunona-podmonitor
+  namespace: sunona
+spec:
+  selector:
+    matchLabels:
+      app: sunona-api
+  podMetricsEndpoints:
+  - port: http
+    path: /metrics
+    interval: 15s

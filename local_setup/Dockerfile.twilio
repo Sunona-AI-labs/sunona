@@ -1,32 +1,29 @@
-# Sunona Voice AI - Twilio Server Dockerfile
-# Optimized with BuildKit
-
-# syntax=docker/dockerfile:1.4
+# Sunona Voice AI - Twilio Server Dockerfile (Lightweight)
 
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies with cache
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get update && apt-get install -y --no-install-recommends \
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
+# Copy lightweight requirements
+COPY requirements-docker.txt ./requirements.txt
 
-# Install Python dependencies with pip cache
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
-COPY . .
+COPY sunona/ ./sunona/
+COPY examples/ ./examples/
+COPY pyproject.toml ./
+COPY README.md ./
 
 # Install the package
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -e .
+RUN pip install --no-cache-dir -e .
 
 # Environment
 ENV PYTHONUNBUFFERED=1

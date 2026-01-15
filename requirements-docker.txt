@@ -1,0 +1,52 @@
+# Sunona Voice AI - Docker Dependencies
+# Full requirements for production with VAD support
+
+# Core Framework
+fastapi>=0.108.0
+uvicorn>=0.22.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# Async & HTTP
+aiohttp>=3.9.0
+aiofiles>=23.2.0
+httpx[http2]>=0.25.0
+websockets>=12.0
+
+# LLM Providers
+openai>=1.10.0
+litellm>=1.50.0
+
+# Speech-to-Text
+deepgram-sdk>=3.0.0
+
+# Text-to-Speech
+elevenlabs>=1.0.0
+edge-tts>=6.1.0
+
+# Telephony
+twilio>=8.9.0
+plivo>=4.40.0
+vonage>=3.10.0
+
+# Data Storage
+redis>=5.0.0
+
+# Audio Processing
+pydub>=0.25.1
+numpy>=1.24.0
+
+# VAD - Voice Activity Detection (required for interruption handling)
+torch>=2.0.0
+
+# Content Moderation
+better-profanity>=0.7.0
+
+# Utilities
+python-dateutil>=2.8.2
+tiktoken>=0.6.0
+pyjwt>=2.8.0
+aiosmtplib>=3.0.0
+
+# Language Detection
+langdetect>=1.0.9
