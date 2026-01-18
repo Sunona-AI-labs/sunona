@@ -1,0 +1,38 @@
+# Render Deployment Configuration
+# https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: sunona-demo
+    runtime: python
+    region: oregon
+    plan: free
+    
+    # Build settings
+    buildCommand: pip install -r requirements.txt
+    startCommand: python gradio_app.py
+    
+    # Environment variables
+    envVars:
+      - key: DEMO_PORT
+        value: 7860
+      - key: LOG_LEVEL
+        value: INFO
+      - key: GOOGLE_API_KEY
+        sync: false  # Set in Render dashboard
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+    
+    # Health check
+    healthCheckPath: /
+    
+    # Auto-deploy on push
+    autoDeploy: true
