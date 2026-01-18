@@ -83,6 +83,19 @@ async def lifespan(app: FastAPI):
     # Connect to persistent storage
     await agents_store.connect()
     
+    # Initialize Redis
+    try:
+        from sunona.config.redis import get_redis, close_redis, check_redis_health
+        redis = await get_redis()
+        health = await check_redis_health()
+        if health.get("status") == "healthy":
+            logger.info(f"✅ Redis connected (v{health.get('version', 'unknown')})")
+        else:
+            logger.warning(f"⚠️ Redis: {health.get('status', 'unavailable')}")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis not available: {e}")
+        close_redis = None
+    
     # Register health checks - must return ComponentHealth
     async def check_agents_store():
         return ComponentHealth(
@@ -102,6 +115,14 @@ async def lifespan(app: FastAPI):
     
     # Graceful shutdown
     await ws_manager.stop()
+    
+    # Close Redis
+    if close_redis:
+        try:
+            await close_redis()
+            logger.info("Redis connection closed")
+        except Exception as e:
+            logger.warning(f"Error closing Redis: {e}")
 
 
 # Create FastAPI app
@@ -270,6 +291,8 @@ async def root():
             "playground": "/playground",
             "webrtc": "/webrtc",
             "organizations": "/organizations",
+            "pricing": "/pricing",
+            "billing": "/billing",
         },
     }
 
@@ -629,6 +652,70 @@ try:
     logger.info("Mounted /organizations routes")
 except ImportError as e:
     logger.warning(f"Organizations routes not available: {e}")
+
+# New routers for complete API coverage
+try:
+    from sunona.api.routes.campaigns import router as campaigns_router
+    app.include_router(campaigns_router)
+    logger.info("Mounted /campaigns routes")
+except ImportError as e:
+    logger.warning(f"Campaigns routes not available: {e}")
+
+try:
+    from sunona.api.routes.phone_numbers import router as phone_numbers_router
+    app.include_router(phone_numbers_router)
+    logger.info("Mounted /phone-numbers routes")
+except ImportError as e:
+    logger.warning(f"Phone numbers routes not available: {e}")
+
+try:
+    from sunona.api.routes.knowledge import router as knowledge_router
+    app.include_router(knowledge_router)
+    logger.info("Mounted /knowledge routes")
+except ImportError as e:
+    logger.warning(f"Knowledge routes not available: {e}")
+
+try:
+    from sunona.api.routes.dashboard import router as dashboard_router
+    app.include_router(dashboard_router)
+    logger.info("Mounted /dashboard routes")
+except ImportError as e:
+    logger.warning(f"Dashboard routes not available: {e}")
+
+try:
+    from sunona.api.routes.billing import router as billing_router
+    app.include_router(billing_router)
+    logger.info("Mounted /billing routes")
+except ImportError as e:
+    logger.warning(f"Billing routes not available: {e}")
+
+try:
+    from sunona.api.routes.analytics import router as analytics_router
+    app.include_router(analytics_router)
+    logger.info("Mounted /analytics routes")
+except ImportError as e:
+    logger.warning(f"Analytics routes not available: {e}")
+
+try:
+    from sunona.api.routes.agents import router as agents_api_router
+    app.include_router(agents_api_router)
+    logger.info("Mounted /agents routes")
+except ImportError as e:
+    logger.warning(f"Agents API routes not available: {e}")
+
+try:
+    from sunona.api.routes.calls import router as calls_router
+    app.include_router(calls_router)
+    logger.info("Mounted /calls routes")
+except ImportError as e:
+    logger.warning(f"Calls routes not available: {e}")
+
+try:
+    from sunona.api.routes.pricing import router as pricing_router
+    app.include_router(pricing_router)
+    logger.info("Mounted /pricing routes")
+except ImportError as e:
+    logger.warning(f"Pricing routes not available: {e}")
 
 
 # =============================================================================

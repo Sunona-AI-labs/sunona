@@ -8,7 +8,7 @@ echo ========================================
 echo.
 
 REM Check if .env exists
-if not exist "..\env" (
+if not exist "..\.env" (
     echo [WARNING] .env file not found!
     echo Creating from .env.example...
     copy "..\.env.example" "..\.env"

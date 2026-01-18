@@ -20,9 +20,36 @@ except ImportError:
 
 from sunona.api.routes.health import router as health_router
 
-# Export for sunona/api/__init__.py to allow legacy imports if needed
-# Note: sunona/api/__init__.py uses "from sunona.api.routes import agents, calls, analytics, campaigns"
-# Since campaigns is missing, we'll need to fix that too.
+# New API routers
+try:
+    from sunona.api.routes.campaigns import router as campaigns_router
+except ImportError:
+    campaigns_router = None
+
+try:
+    from sunona.api.routes.phone_numbers import router as phone_numbers_router
+except ImportError:
+    phone_numbers_router = None
+
+try:
+    from sunona.api.routes.knowledge import router as knowledge_router
+except ImportError:
+    knowledge_router = None
+
+try:
+    from sunona.api.routes.dashboard import router as dashboard_router
+except ImportError:
+    dashboard_router = None
+
+try:
+    from sunona.api.routes.organizations import router as organizations_router
+except ImportError:
+    organizations_router = None
+
+try:
+    from sunona.api.routes.playground import router as playground_router
+except ImportError:
+    playground_router = None
 
 __all__ = [
     "billing_router",
@@ -30,4 +57,10 @@ __all__ = [
     "calls_router",
     "analytics_router",
     "health_router",
+    "campaigns_router",
+    "phone_numbers_router",
+    "knowledge_router",
+    "dashboard_router",
+    "organizations_router",
+    "playground_router",
 ]
