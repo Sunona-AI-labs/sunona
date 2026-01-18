@@ -6,11 +6,22 @@ This folder contains ready-to-run example assistants demonstrating Sunona's capa
 
 ## 📁 Available Examples
 
+### Voice Assistants
 | File | Type | Description |
 |------|------|-------------|
 | `simple_assistant.py` | 🎤 Full Voice | Complete hands-free voice assistant with mic input |
 | `voice_assistant.py` | ⌨️ + 🔊 | Text input with voice output (type to chat) |
 | `text_only_assistant.py` | ⌨️ Text | Pure text chat, no audio required |
+| `domain_expert.py` | 🧠 Expert | Domain-specific expert assistant |
+
+### Telephony Call Servers
+| File | Provider | Port | Description |
+|------|----------|------|-------------|
+| `twilio_call_server.py` | Twilio | 8001 | Production Twilio call handler |
+| `plivo_call_server.py` | Plivo | 8002 | Plivo call handler |
+| `vonage_call_server.py` | Vonage | 8003 | Vonage call handler |
+| `telnyx_call_server.py` | Telnyx | 8004 | Telnyx call handler |
+| `bandwidth_call_server.py` | Bandwidth | 8005 | Bandwidth call handler |
 
 ---
 

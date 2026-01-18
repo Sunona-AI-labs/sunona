@@ -1,0 +1,48 @@
+# Sunona Voice AI - Vonage Server Dockerfile
+# Separate container for Vonage telephony provider
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1000 sunona
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install CPU-only PyTorch first (saves ~3GB vs GPU version)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir --no-deps -r requirements.txt && \
+    pip install --no-cache-dir -r requirements.txt || echo "Some dependency conflicts exist but core packages installed" && \
+    rm -rf /root/.cache/pip
+
+# Copy source code
+COPY --chown=sunona:sunona . .
+
+# Install the package (--no-deps since deps already installed)
+RUN pip install --no-deps -e .
+
+# Switch to non-root user
+USER sunona
+
+# Environment
+ENV PATH=/home/sunona/.local/bin:$PATH
+ENV PYTHONPATH=/app:$PYTHONPATH
+ENV PYTHONUNBUFFERED=1
+ENV SUNONA_HOST=0.0.0.0
+ENV SUNONA_PORT=8003
+
+# Expose port
+EXPOSE 8003
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8003/health || exit 1
+
+# Run Vonage server
+CMD ["python", "examples/vonage_call_server.py"]

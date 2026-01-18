@@ -118,6 +118,130 @@ services:
     restart: unless-stopped
 
   # ==========================================================================
+  # Plivo Call Server
+  # ==========================================================================
+  plivo-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.plivo
+    container_name: sunona-plivo
+    ports:
+      - "8002:8002"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8002
+      - REDIS_URL=redis://redis:6379/0
+      - PLIVO_AUTH_ID=${PLIVO_AUTH_ID:-}
+      - PLIVO_AUTH_TOKEN=${PLIVO_AUTH_TOKEN:-}
+      - PLIVO_PHONE_NUMBER=${PLIVO_PHONE_NUMBER:-}
+      - PLIVO_WEBHOOK_URL=${PLIVO_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - plivo
+
+  # ==========================================================================
+  # Vonage Call Server
+  # ==========================================================================
+  vonage-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.vonage
+    container_name: sunona-vonage
+    ports:
+      - "8003:8003"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8003
+      - REDIS_URL=redis://redis:6379/0
+      - VONAGE_API_KEY=${VONAGE_API_KEY:-}
+      - VONAGE_API_SECRET=${VONAGE_API_SECRET:-}
+      - VONAGE_APPLICATION_ID=${VONAGE_APPLICATION_ID:-}
+      - VONAGE_PRIVATE_KEY=${VONAGE_PRIVATE_KEY:-}
+      - VONAGE_PHONE_NUMBER=${VONAGE_PHONE_NUMBER:-}
+      - VONAGE_WEBHOOK_URL=${VONAGE_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - vonage
+
+  # ==========================================================================
+  # Telnyx Call Server
+  # ==========================================================================
+  telnyx-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.telnyx
+    container_name: sunona-telnyx
+    ports:
+      - "8004:8004"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8004
+      - REDIS_URL=redis://redis:6379/0
+      - TELNYX_API_KEY=${TELNYX_API_KEY:-}
+      - TELNYX_PROFILE_NAME=${TELNYX_PROFILE_NAME:-}
+      - TELNYX_PHONE_NUMBER=${TELNYX_PHONE_NUMBER:-}
+      - TELNYX_WEBHOOK_URL=${TELNYX_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - telnyx
+
+  # ==========================================================================
+  # Bandwidth Call Server
+  # ==========================================================================
+  bandwidth-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.bandwidth
+    container_name: sunona-bandwidth
+    ports:
+      - "8005:8005"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8005
+      - REDIS_URL=redis://redis:6379/0
+      - BANDWIDTH_USERNAME=${BANDWIDTH_USERNAME:-}
+      - BANDWIDTH_PASSWORD=${BANDWIDTH_PASSWORD:-}
+      - BANDWIDTH_ACCOUNT_ID=${BANDWIDTH_ACCOUNT_ID:-}
+      - BANDWIDTH_APPLICATION_ID=${BANDWIDTH_APPLICATION_ID:-}
+      - BANDWIDTH_PHONE_NUMBER=${BANDWIDTH_PHONE_NUMBER:-}
+      - BANDWIDTH_WEBHOOK_URL=${BANDWIDTH_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - bandwidth
+
+  # ==========================================================================
   # Redis Cache & Session Storage
   # ==========================================================================
   redis:
@@ -168,7 +292,7 @@ services:
     image: chromadb/chroma:latest
     container_name: sunona-chromadb
     ports:
-      - "8002:8000"
+      - "8010:8000"
     volumes:
       - chroma-data:/chroma/chroma
     networks:

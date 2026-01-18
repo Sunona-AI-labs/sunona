@@ -1,74 +1,111 @@
-# Sunona Voice AI - Dependencies
+# Sunona Voice AI - Dependencies (Production Grade - All Providers)
+# Scanned from sunona backend: llms, transcriber, synthesizer, telephony
+# Updated: 2026-01-16 with latest versions
 
+# =============================================================================
 # Core Framework
-fastapi>=0.108.0
-uvicorn>=0.22.0
-pydantic>=2.5.0
-python-dotenv>=1.0.0
+# =============================================================================
+fastapi>=0.115.0
+uvicorn>=0.34.0
+pydantic>=2.10.0
+python-dotenv>=1.0.1
+python-multipart>=0.0.12
 
+# =============================================================================
 # Async & HTTP
-aiohttp>=3.9.0
-aiofiles>=23.2.0
-httpx[http2]>=0.25.0
-websockets>=12.0
+# =============================================================================
+aiohttp>=3.11.0
+aiofiles>=24.1.0
+httpx[http2]>=0.28.0
+websockets>=12.0,<14.0
 
-# LLM Providers
-openai>=1.10.0
-litellm>=1.50.0
+# =============================================================================
+# LLM Providers (sunona/llms)
+# =============================================================================
+openai>=1.60.0
+litellm>=1.60.0
+anthropic>=0.76.0
+google-generativeai>=0.8.6
+groq>=0.15.0
 
-# Speech-to-Text
-deepgram-sdk>=3.0.0
-# google-cloud-speech>=2.21.0  # Uncomment for Google STT
-# azure-cognitiveservices-speech>=1.30.0  # Uncomment for Azure STT
-# boto3>=1.34.0  # Uncomment for AWS Transcribe
+# =============================================================================
+# Speech-to-Text Providers (sunona/transcriber)
+# =============================================================================
+deepgram-sdk>=3.10.0
+google-cloud-speech>=2.30.0
+azure-cognitiveservices-speech>=1.42.0
+boto3>=1.36.0
+assemblyai>=0.48.4
+# gladia - uses httpx (no SDK, API-based)
+# groq transcriber - uses groq SDK above
+# sarvam - uses httpx (no SDK, API-based)
+# pixa - uses httpx (no SDK, API-based)
+# smallest - uses httpx (no SDK, API-based)
+# whisper - uses openai SDK above
 
-# Text-to-Speech
-elevenlabs>=1.0.0
-# boto3>=1.34.0  # For AWS Polly (shared with Transcribe)
-# azure-cognitiveservices-speech>=1.30.0  # For Azure TTS (shared with STT)
+# =============================================================================
+# Text-to-Speech Providers (sunona/synthesizer)
+# =============================================================================
+elevenlabs>=2.30.0
+edge-tts>=6.1.18
+pyht>=0.1.14
+# cartesia - uses httpx (no SDK, API-based)
+# rime - uses httpx (no SDK, API-based)
+# sarvam - uses httpx (no SDK, API-based)
+# deepgram TTS - uses deepgram-sdk above
+# openai TTS - uses openai SDK above
+# polly TTS - uses boto3 above
+# azure TTS - uses azure-cognitiveservices-speech above
+# smallest - uses httpx (no SDK, API-based)
+# xtts - uses httpx (no SDK, API-based)
 
-# Telephony
-twilio>=8.9.0
-plivo>=4.40.0
-vonage>=3.10.0
-# signalwire>=1.4.0  # Uncomment for SignalWire
-# telnyx>=2.1.0  # Uncomment for Telnyx
-# bandwidth-sdk>=3.10.0  # Uncomment for Bandwidth
+# =============================================================================
+# Telephony Providers (sunona/telephony)
+# =============================================================================
+twilio>=9.0.0
+plivo>=4.59.0
+vonage>=3.18.0
+# signalwire - EXCLUDED (requires twilio==6.54.0, conflicts with twilio>=9.0.0)
+telnyx>=4.3.0
+bandwidth-sdk>=21.1.0
 
+# =============================================================================
 # Data Storage
-redis>=5.0.0
+# =============================================================================
+redis>=5.2.0
+asyncpg>=0.30.0
 
+# =============================================================================
 # Audio Processing
+# =============================================================================
 pydub>=0.25.1
-numpy>=1.24.0
+numpy>=2.2.0
+pygame>=2.6.0
+sounddevice>=0.5.1
+# pyaudio - REMOVED (requires PortAudio headers, use sounddevice instead)
 
+# =============================================================================
 # Content Moderation
+# =============================================================================
 better-profanity>=0.7.0
 
-# RAG - Vector Stores
-chromadb>=0.4.0
+# =============================================================================
+# RAG - Vector Stores & Embeddings
+# =============================================================================
+chromadb>=0.6.0
+sentence-transformers>=3.4.0
 
-# RAG - Embeddings (Optional for local models)
-# sentence-transformers>=2.2.0  # Uncomment for local embeddings
+# =============================================================================
+# VAD - Voice Activity Detection
+# =============================================================================
+torch>=2.9.1
 
-# VAD - Voice Activity Detection (Production Ready)
-torch>=2.0.0
-# numpy already installed above
-
+# =============================================================================
 # Utilities
-python-dateutil>=2.8.2
-tiktoken>=0.6.0
-pyjwt>=2.8.0
-aiosmtplib>=3.0.0
-
-# Text-to-Speech (Edge TTS - FREE, unlimited)
-edge-tts>=6.1.0
-
-# Audio Playback
-pygame>=2.5.0
-
-# Audio Recording
-sounddevice>=0.4.6
-
-# Language Detection (for multilingual TTS)
+# =============================================================================
+python-dateutil>=2.9.0
+tiktoken>=0.8.0
+pyjwt>=2.10.1
+aiosmtplib>=3.0.2
+psutil>=6.1.0
 langdetect>=1.0.9

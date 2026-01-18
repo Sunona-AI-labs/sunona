@@ -75,8 +75,14 @@ data/
 output/
 tests/
 
-# Docker (don't include in context)
+# Docker (exclude context but allow local_setup for building)
 local_setup/
+!local_setup/Dockerfile
+!local_setup/Dockerfile.twilio
+!local_setup/Dockerfile.plivo
+!local_setup/Dockerfile.vonage
+!local_setup/Dockerfile.telnyx
+!local_setup/Dockerfile.bandwidth
 !local_setup/requirements.txt
 
 # Frontend (Next.js website - 779MB with node_modules)
@@ -94,3 +100,9 @@ node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+
+
+
+
+

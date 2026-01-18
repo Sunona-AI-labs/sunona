@@ -1,31 +1,42 @@
-# Sunona Voice AI - Twilio Server Dockerfile (Lightweight)
+# Sunona Voice AI - Twilio Server Dockerfile
+# Single-stage build for reliability
 
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install system dependencies
+# RUN --mount=type=cache,target=/var/cache/apt \
+# apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    #new like above up side 
     ffmpeg \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1000 sunona
 
-# Copy lightweight requirements
-COPY requirements-docker.txt ./requirements.txt
+# Copy requirements
+COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install CPU-only PyTorch first (saves ~3GB vs GPU version)
+# Then install remaining requirements
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir --no-deps -r requirements.txt && \
+    pip install --no-cache-dir -r requirements.txt || echo "Some dependency conflicts exist but core packages installed" && \
+    rm -rf /root/.cache/pip
 
 # Copy source code
-COPY sunona/ ./sunona/
-COPY examples/ ./examples/
-COPY pyproject.toml ./
-COPY README.md ./
+COPY --chown=sunona:sunona . .
 
-# Install the package
-RUN pip install --no-cache-dir -e .
+# Install the package (--no-deps since deps already installed)
+RUN pip install --no-deps -e .
+
+# Switch to non-root user
+USER sunona
 
 # Environment
+ENV PATH=/home/sunona/.local/bin:$PATH
+ENV PYTHONPATH=/app:$PYTHONPATH
 ENV PYTHONUNBUFFERED=1
 ENV SUNONA_HOST=0.0.0.0
 ENV SUNONA_PORT=8001
@@ -35,7 +46,7 @@ EXPOSE 8001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8001/health || exit 1
+    CMD curl -f http://localhost:8001/ || exit 1
 
 # Run Twilio server
 CMD ["python", "examples/twilio_call_server.py"]

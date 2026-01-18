@@ -51,24 +51,20 @@ docker compose build --no-cache
 docker compose up -d --build
 ```
 
-### BuildKit Cache Mounts
+### Image Optimization
 
-Our Dockerfiles use cache mounts for faster builds:
+Our Dockerfiles use **CPU-only PyTorch** for smaller images (~5GB instead of ~9.5GB):
 
 ```dockerfile
-# Pip cache - reuses downloaded packages
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
-
-# Apt cache - reuses downloaded packages  
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get install -y ffmpeg curl
+# Install CPU-only PyTorch (saves ~4GB vs GPU version)
+RUN pip install --no-cache-dir torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cpu
 ```
 
 ### BuildKit Benefits
-- 🚀 **10x faster rebuilds** - Caches pip and apt packages
-- 📦 **Smaller context** - .dockerignore excludes unnecessary files
-- ⚡ **Parallel builds** - Multiple stages build simultaneously
+- 🚀 **Faster rebuilds** - Parallel layer building
+- 📦 **Smaller images** - CPU-only PyTorch (~5GB vs ~9.5GB)
+- ⚡ **Parallel builds** - Multiple services build simultaneously
 - 💾 **Smart caching** - Only rebuilds changed layers
 
 ---
@@ -90,9 +86,13 @@ RUN --mount=type=cache,target=/var/cache/apt \
 |---------|------|-------------|
 | `sunona-app` | 8000 | Main API server |
 | `twilio-server` | 8001 | Twilio call handler |
+| `plivo-server` | 8002 | Plivo call handler (profile: plivo) |
+| `vonage-server` | 8003 | Vonage call handler (profile: vonage) |
+| `telnyx-server` | 8004 | Telnyx call handler (profile: telnyx) |
+| `bandwidth-server` | 8005 | Bandwidth call handler (profile: bandwidth) |
 | `redis` | 6379 | Session storage |
 | `postgres` | 5432 | Database |
-| `chromadb` | 8001 | Vector store (RAG profile) |
+| `chromadb` | 8010 | Vector store (RAG profile) |
 | `ngrok` | 4040 | Tunnel console (dev profile) |
 | `prometheus` | 9090 | Metrics (monitoring profile) |
 | `grafana` | 3000 | Dashboard (monitoring profile) |
@@ -211,6 +211,12 @@ docker compose --profile dev up -d
 
 # Enable monitoring (Prometheus + Grafana)
 docker compose --profile monitoring up -d
+
+# Enable specific telephony providers
+docker compose --profile plivo up -d      # Plivo server on port 8002
+docker compose --profile vonage up -d     # Vonage server on port 8003
+docker compose --profile telnyx up -d     # Telnyx server on port 8004
+docker compose --profile bandwidth up -d  # Bandwidth server on port 8005
 ```
 
 ---
