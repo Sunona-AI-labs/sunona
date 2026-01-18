@@ -1,15 +1,12 @@
-# Sunona Voice AI - Twilio Server Dockerfile
-# Single-stage build for reliability
+# Sunona Voice AI - Bandwidth Server Dockerfile
+# Separate container for Bandwidth telephony provider
 
 FROM python:3.11-slim
 
 WORKDIR /app
 
 # Install system dependencies
-# RUN --mount=type=cache,target=/var/cache/apt \
-# apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    #new like above up side 
     ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/* \
@@ -19,7 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Install CPU-only PyTorch first (saves ~3GB vs GPU version)
-# Then install remaining requirements
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir --no-deps -r requirements.txt && \
     pip install --no-cache-dir -r requirements.txt || echo "Some dependency conflicts exist but core packages installed" && \
@@ -39,14 +35,14 @@ ENV PATH=/home/sunona/.local/bin:$PATH
 ENV PYTHONPATH=/app:$PYTHONPATH
 ENV PYTHONUNBUFFERED=1
 ENV SUNONA_HOST=0.0.0.0
-ENV SUNONA_PORT=8001
+ENV SUNONA_PORT=8005
 
 # Expose port
-EXPOSE 8001
+EXPOSE 8005
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8001/ || exit 1
+    CMD curl -f http://localhost:8005/health || exit 1
 
-# Run Twilio server
-CMD ["python", "examples/twilio_call_server.py"]
+# Run Bandwidth server
+CMD ["python", "examples/bandwidth_call_server.py"]

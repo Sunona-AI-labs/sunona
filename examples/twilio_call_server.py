@@ -525,19 +525,20 @@ async def hangup_call(call_sid: str):
 
 # ==================== Main ====================
 if __name__ == "__main__":
+    port = int(os.getenv("SUNONA_PORT", "8001"))
     print("\n" + "="*60)
     print("🎙️  SUNONA VOICE AI - TWILIO CALL SERVER")
     print("="*60)
     print(f"\n📍 Webhook URL: {WEBHOOK_URL}")
     print(f"📞 Twilio Phone: {TWILIO_PHONE_NUMBER or 'Not configured'}")
-    print("\n⚡ Starting server on http://localhost:8000")
+    print(f"\n⚡ Starting server on http://localhost:{port}")
     print("\n📖 To make a call:")
-    print("   POST http://localhost:8000/make-call?to=+1234567890")
+    print(f"   POST http://localhost:{port}/make-call?to=+1234567890")
     print("\n" + "="*60 + "\n")
     
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=port,
         log_level="info",
     )

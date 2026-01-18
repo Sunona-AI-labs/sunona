@@ -1,60 +1,42 @@
 # Sunona Voice AI - Production Dockerfile
-# Optimized with BuildKit for faster builds
-# Enable BuildKit: set DOCKER_BUILDKIT=1
+# Single-stage build for reliability with complex dependencies
 
-# syntax=docker/dockerfile:1.4
-
-# ==========================================================================
-# Stage 1: Dependencies (cached layer)
-# ==========================================================================
-FROM python:3.11-slim AS deps
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install build dependencies
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements first for better caching
-COPY requirements.txt .
-
-# Install Python dependencies with pip cache
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --user -r requirements.txt
-
-# ==========================================================================
-# Stage 2: Production image
-# ==========================================================================
-FROM python:3.11-slim AS production
-
-WORKDIR /app
-
-# Install runtime dependencies with cache
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -u 1000 sunona
+    && useradd -m -u 1000 sunona 
 
-# Copy Python packages from deps stage
-COPY --from=deps /root/.local /home/sunona/.local
 
-# Copy source code (use .dockerignore to exclude unnecessary files)
+# Copy requirements first for better caching
+COPY requirements.txt ./requirements.txt
+
+# Install CPU-only PyTorch first (saves ~3GB vs GPU version)
+# Then install remaining requirements
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir --no-deps -r requirements.txt && \
+    pip install --no-cache-dir -r requirements.txt || echo "Some dependency conflicts exist but core packages installed" && \
+    rm -rf /root/.cache/pip
+
+# Copy source code
 COPY --chown=sunona:sunona . .
 
-# Install the package
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -e .
+# Install the package in editable mode (--no-deps since deps already installed)
+RUN pip install --no-deps -e .
 
 # Switch to non-root user
 USER sunona
 
-# Add local packages to PATH
+# Environment configuration
 ENV PATH=/home/sunona/.local/bin:$PATH
+ENV PYTHONPATH=/app:$PYTHONPATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SUNONA_HOST=0.0.0.0

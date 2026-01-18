@@ -20,11 +20,11 @@ services:
       - SUNONA_PORT=8000
       - SUNONA_DEBUG=${SUNONA_DEBUG:-false}
       - SUNONA_BASE_URL=${SUNONA_BASE_URL:-http://localhost:8000}
-      
+
       # Database & Cache
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=${DATABASE_URL:-postgresql://sunona:sunona@postgres:5432/sunona}
-      
+
       # LLM Providers
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENROUTER_MODEL=${OPENROUTER_MODEL:-mistralai/mistral-7b-instruct:free}
@@ -32,38 +32,38 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
-      
+
       # STT Providers
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - ASSEMBLYAI_API_KEY=${ASSEMBLYAI_API_KEY:-}
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
-      
+
       # TTS Providers
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-EXAVITQu4vr4xnSDxMaL}
       - RIME_API_KEY=${RIME_API_KEY:-}
       - CARTESIA_API_KEY=${CARTESIA_API_KEY:-}
-      
+
       # Telephony
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
       - TWILIO_WEBHOOK_URL=${TWILIO_WEBHOOK_URL}
-      
+
       # Billing
       - STRIPE_API_KEY=${STRIPE_API_KEY:-}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
-      
+
       # Email Notifications
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      
+
       # Security
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - SUNONA_MASTER_KEY=${SUNONA_MASTER_KEY:-}
-      
+
       # Enterprise & Hardening
       - DEFAULT_ORGANIZATION_ID=${DEFAULT_ORGANIZATION_ID:-org_default}
       - ENFORCE_ORGANIZATION_ISOLATION=${ENFORCE_ORGANIZATION_ISOLATION:-true}
@@ -78,7 +78,7 @@ services:
       - sunona-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -118,6 +118,130 @@ services:
     restart: unless-stopped
 
   # ==========================================================================
+  # Plivo Call Server
+  # ==========================================================================
+  plivo-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.plivo
+    container_name: sunona-plivo
+    ports:
+      - "8002:8002"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8002
+      - REDIS_URL=redis://redis:6379/0
+      - PLIVO_AUTH_ID=${PLIVO_AUTH_ID:-}
+      - PLIVO_AUTH_TOKEN=${PLIVO_AUTH_TOKEN:-}
+      - PLIVO_PHONE_NUMBER=${PLIVO_PHONE_NUMBER:-}
+      - PLIVO_WEBHOOK_URL=${PLIVO_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - plivo
+
+  # ==========================================================================
+  # Vonage Call Server
+  # ==========================================================================
+  vonage-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.vonage
+    container_name: sunona-vonage
+    ports:
+      - "8003:8003"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8003
+      - REDIS_URL=redis://redis:6379/0
+      - VONAGE_API_KEY=${VONAGE_API_KEY:-}
+      - VONAGE_API_SECRET=${VONAGE_API_SECRET:-}
+      - VONAGE_APPLICATION_ID=${VONAGE_APPLICATION_ID:-}
+      - VONAGE_PRIVATE_KEY=${VONAGE_PRIVATE_KEY:-}
+      - VONAGE_PHONE_NUMBER=${VONAGE_PHONE_NUMBER:-}
+      - VONAGE_WEBHOOK_URL=${VONAGE_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - vonage
+
+  # ==========================================================================
+  # Telnyx Call Server
+  # ==========================================================================
+  telnyx-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.telnyx
+    container_name: sunona-telnyx
+    ports:
+      - "8004:8004"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8004
+      - REDIS_URL=redis://redis:6379/0
+      - TELNYX_API_KEY=${TELNYX_API_KEY:-}
+      - TELNYX_PROFILE_NAME=${TELNYX_PROFILE_NAME:-}
+      - TELNYX_PHONE_NUMBER=${TELNYX_PHONE_NUMBER:-}
+      - TELNYX_WEBHOOK_URL=${TELNYX_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - telnyx
+
+  # ==========================================================================
+  # Bandwidth Call Server
+  # ==========================================================================
+  bandwidth-server:
+    build:
+      context: ..
+      dockerfile: local_setup/Dockerfile.bandwidth
+    container_name: sunona-bandwidth
+    ports:
+      - "8005:8005"
+    environment:
+      - SUNONA_HOST=0.0.0.0
+      - SUNONA_PORT=8005
+      - REDIS_URL=redis://redis:6379/0
+      - BANDWIDTH_USERNAME=${BANDWIDTH_USERNAME:-}
+      - BANDWIDTH_PASSWORD=${BANDWIDTH_PASSWORD:-}
+      - BANDWIDTH_ACCOUNT_ID=${BANDWIDTH_ACCOUNT_ID:-}
+      - BANDWIDTH_APPLICATION_ID=${BANDWIDTH_APPLICATION_ID:-}
+      - BANDWIDTH_PHONE_NUMBER=${BANDWIDTH_PHONE_NUMBER:-}
+      - BANDWIDTH_WEBHOOK_URL=${BANDWIDTH_WEBHOOK_URL:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      - sunona-app
+      - redis
+    networks:
+      - sunona-network
+    restart: unless-stopped
+    profiles:
+      - bandwidth
+
+  # ==========================================================================
   # Redis Cache & Session Storage
   # ==========================================================================
   redis:
@@ -132,7 +256,7 @@ services:
       - sunona-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -156,7 +280,7 @@ services:
       - sunona-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sunona"]
+      test: [ "CMD-SHELL", "pg_isready -U sunona" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -168,7 +292,7 @@ services:
     image: chromadb/chroma:latest
     container_name: sunona-chromadb
     ports:
-      - "8001:8000"
+      - "8010:8000"
     volumes:
       - chroma-data:/chroma/chroma
     networks:
