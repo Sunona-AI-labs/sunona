@@ -240,6 +240,8 @@ class SileroVAD:
                         
                         if self.on_speech_end:
                             self._run_callback(self.on_speech_end, "on_speech_end")
+        
+        return speech_detected
     
     def _run_callback(self, callback: Callable[[], Awaitable[None]], name: str) -> None:
         """Run a callback in a background task with error handling."""
@@ -250,8 +252,6 @@ class SileroVAD:
                 logger.error(f"Error in SileroVAD {name} callback: {e}")
         
         asyncio.create_task(_wrapper())
-        
-        return speech_detected
     
     def is_speaking(self) -> bool:
         """Check if currently in speech state."""

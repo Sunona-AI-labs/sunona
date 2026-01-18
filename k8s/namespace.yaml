@@ -1,0 +1,8 @@
+# Sunona Voice AI - Kubernetes Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sunona
+  labels:
+    app.kubernetes.io/name: sunona
+    app.kubernetes.io/part-of: sunona-voice-ai

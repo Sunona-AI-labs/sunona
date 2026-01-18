@@ -292,7 +292,7 @@ profit*.md
 sunona/billing/
 sunona/multitenancy/
 sunona/api/routes/billing.py
-sunona/api/routes/organizations.py
+# sunona/api/routes/organizations.py  # Now public for API key management
 sunona/api/routes/billed_services.py
 sunona/api/routes/dashboard.py
 
