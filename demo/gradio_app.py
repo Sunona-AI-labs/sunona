@@ -658,16 +658,15 @@ def create_demo_app():
     }
     """
     
-    with gr.Blocks(
-        title="Sunona Voice AI",
-        theme=gr.themes.Soft(
-            primary_hue="violet",
-            secondary_hue="slate",
-            neutral_hue="slate",
-            font=("Inter", "system-ui", "sans-serif")
-        ),
-        css=custom_css
-    ) as demo:
+    # Define theme and css for launch
+    theme = gr.themes.Soft(
+        primary_hue="violet",
+        secondary_hue="slate",
+        neutral_hue="slate",
+        font=("Inter", "system-ui", "sans-serif")
+    )
+    
+    with gr.Blocks(title="Sunona Voice AI") as demo:
         
         # State variables
         user_config = gr.State({})
@@ -849,7 +848,7 @@ def create_demo_app():
                 btn_t2t_edit = gr.Button("← Edit Prompt", size="sm", variant="secondary")
                 btn_t2t_home = gr.Button("⌂ Home", size="sm", variant="secondary")
             
-            chatbot_t2t = gr.Chatbot(height=450, type="messages", show_label=False)
+            chatbot_t2t = gr.Chatbot(height=450, show_label=False)
             
             with gr.Row():
                 msg_t2t = gr.Textbox(
@@ -1442,10 +1441,90 @@ if __name__ == "__main__":
     
     logger.info(f"Starting Sunona Demo on port {port}")
     
+    # Create and launch demo
+    # Note: theme and css moved to launch for Gradio 6.0+ compatibility
+    custom_css = """
+    /* Global Styles */
+    .gradio-container {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+    
+    /* Hero Header */
+    .hero-title {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        text-align: center;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .hero-subtitle {
+        text-align: center;
+        color: #6b7280 !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 2rem !important;
+    }
+    
+    /* Demo Cards */
+    .demo-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .demo-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        border-color: #a78bfa;
+    }
+    
+    .demo-card h3 {
+        color: #1e293b !important;
+        font-weight: 700 !important;
+        margin-bottom: 8px !important;
+    }
+    
+    /* Buttons */
+    .primary-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 12px 24px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .primary-btn:hover {
+        transform: scale(1.02);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Footer */
+    .footer-text {
+        text-align: center;
+        color: #9ca3af;
+        font-size: 0.875rem;
+        margin-top: 2rem;
+    }
+    """
+    theme = gr.themes.Soft(
+        primary_hue="violet",
+        secondary_hue="slate",
+        neutral_hue="slate",
+        font=("Inter", "system-ui", "sans-serif")
+    )
+    
     app = create_demo_app()
     app.launch(
         server_name="0.0.0.0",
         server_port=port,
         share=False,
         show_error=True,
+        theme=theme,
+        css=custom_css
     )
