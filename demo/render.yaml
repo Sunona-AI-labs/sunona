@@ -16,13 +16,21 @@ services:
     envVars:
       - key: DEMO_PORT
         value: 7860
+      - key: PYTHON_VERSION
+        value: 3.10.12
       - key: LOG_LEVEL
         value: INFO
       - key: GOOGLE_API_KEY
-        sync: false  # Set in Render dashboard
+        sync: false
       - key: DEEPGRAM_API_KEY
         sync: false
       - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PLAYHT_API_KEY
+        sync: false
+      - key: PLAYHT_USER_ID
         sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false

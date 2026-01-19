@@ -1437,7 +1437,8 @@ def create_demo_app():
 # ============================================================================
 
 if __name__ == "__main__":
-    port = int(os.getenv("DEMO_PORT", 7860))
+    # Support standard PORT (Render/Heroku) and DEMO_PORT
+    port = int(os.getenv("PORT") or os.getenv("DEMO_PORT") or 7860)
     
     logger.info(f"Starting Sunona Demo on port {port}")
     
