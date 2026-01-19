@@ -14,106 +14,32 @@
 
 ---
 
-## 🎬 Demo
-
-### 🎤 Voice Assistant Examples
-
-https://github.com/user-attachments/assets/613a9942-7c3b-48ba-8a26-9f9614430424
-
-> 🎙️ **This demo showcases Sunona's voice assistants** — `simple_assistant.py`, `voice_assistant.py`, and `text_only_assistant.py` with real-time STT, LLM, and TTS.
-
 ---
 
-### 📞 Twilio Phone Call Demo
+## 🎬 Demos & Interfaces
 
-https://github.com/user-attachments/assets/7f9da85f-72e3-4168-8021-eaf311e6fa3a
+Sunona now offers **three distinct ways** to experience the platform:
 
-> 📞 **This demo showcases Sunona's Twilio integration** — an AI campus recruiter (Priya) making real phone calls with voice conversation.
+### 1️⃣ 🎨 Interactive Web Demo (Gradio)
+A professional, full-featured web interface to explore all Sunona capabilities in one place.
+- **Features**: Text-to-Text, Text-to-Speech (with autoplay), Hands-free Speech-to-Speech, and real Twilio Call testing.
+- **UI/UX**: Modern gradient design, SVG icons, conversation history, and real-time status updates.
+- **Reliability**: Built-in 5-tier robust TTS fallback system.
 
-### 🔧 Required Setup to Replicate This Demo
+### 2️⃣ 🎤 True Hands-Free Assistant (Standalone VAD)
+A console-based version of the assistant that uses **Voice Activity Detection (VAD)** for a truly natural experience.
+- **Continuous Listening**: No buttons to click. It just listens while you speak.
+- **Automatic Processing**: Responds automatically when you stop talking (1.5s silence).
+- **Barge-in Support**: You can interrupt the AI mid-sentence just like a human conversation.
 
-**1. Environment Variables (`.env`):**
+### 3️⃣ 📞 Twilio Phone Call Demo
+Make real phone calls to your mobile number and talk to Sunona.
 
-```bash
-# LLM (Brain) - Primary: Groq (fastest), Fallback: OpenRouter
-GROQ_API_KEY=gsk_xxxxxxxx              # https://console.groq.com/keys
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx   # https://openrouter.ai/keys (fallback)
-
-# STT (Ears) - https://console.deepgram.com/
-DEEPGRAM_API_KEY=xxxxxxxx
-
-# TTS (Voice) - https://elevenlabs.io/app/settings/api-keys
-ELEVENLABS_API_KEY=xxxxxxxx
-
-# Telephony - https://www.twilio.com/console
-TWILIO_ACCOUNT_SID=ACxxxxxxxx
-TWILIO_AUTH_TOKEN=xxxxxxxx
-TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
-TWILIO_WEBHOOK_URL=https://your-ngrok-url.ngrok-free.app
-
-# Ngrok (for local testing) - https://dashboard.ngrok.com/
-NGROK_AUTH_TOKEN=xxxxxxxx
-```
-
-**2. Agent Configuration Used:**
-- **Config**: [`agent_data/example_recruiter/config_minimal.json`](agent_data/example_recruiter/config_minimal.json)
-- **Agent Name**: Priya (Campus Recruiter)
-- **Providers**: Deepgram Nova-2 (STT) → LLM → ElevenLabs Turbo (TTS)
-
-**3. Run the Demo (Step-by-Step):**
-
-> 💡 All scripts use **curl** for API testing — no Postman required!
-
-```powershell
-# Step 1: Start ngrok tunnel (Terminal 1)
-ngrok http 8000
-
-# Step 2: Start Sunona server (Terminal 2)
-python -m sunona.server
-
-# Step 3: Health check - verify server is running (Terminal 3)
-.\scripts\test_api.bat
-
-# Step 4: View agent details, prompt, users, etc.
-.\scripts\view_agent.bat
-
-# Step 5: Create agent - ⚠️ COPY THE UNIQUE agent_id FROM OUTPUT!
-.\scripts\create_agent.bat
-
-# Step 6: Make call via Twilio - paste agent_id when prompted
-.\scripts\make_call.bat
-```
-
-| Step | Script | Purpose |
-|------|--------|---------|
-| 1 | `ngrok http 8000` | Expose local server to internet |
-| 2 | `python -m sunona.server` | Start the Sunona API server |
-| 3 | [`test_api.bat`](scripts/test_api.bat) | Health check - verify server connection |
-| 4 | [`view_agent.bat`](scripts/view_agent.bat) | View agent config, prompt, and users |
-| 5 | [`create_agent.bat`](scripts/create_agent.bat) | Create agent → **copy the `agent_id`** |
-| 6 | [`make_call.bat`](scripts/make_call.bat) | Make Twilio call with the agent |
-
-> � See [`scripts/README.md`](scripts/README.md) for detailed script documentation.
-
----
-
-## ✨ Features at a Glance
-
-| Category | Capabilities |
-|----------|--------------|
-| **🎤 Speech-to-Text** | 11 providers: Deepgram, Whisper, Groq, AssemblyAI, Azure, Sarvam, ElevenLabs, Gladia, Pixa, Smallest, AWS |
-| **🧠 LLM** | 100+ models via LiteLLM: OpenRouter (FREE), OpenAI, Anthropic, Groq, Gemini, Azure, Mistral |
-| **🔊 Text-to-Speech** | 11 providers: Edge TTS (FREE), ElevenLabs, OpenAI, Deepgram, Cartesia, Rime, Smallest, Sarvam, PlayHT, Azure, Polly |
-| **📞 Telephony** | 7 providers: Twilio, Plivo, Exotel, Vonage, SignalWire, Telnyx, Bandwidth |
-| **🤖 AI Agents** | 7 types: Contextual, Extraction, Graph, Knowledge Base, Webhook, Summarization, Adaptive |
-| **📚 Knowledge Base** | Universal builder: Website, PDF, DOCX, TXT, JSON, CSV with auto-agent generation |
-| **🔄 Smart Transfer** | Intelligent call transfer to humans when AI can't answer |
-| **💳 Billing** | Pay-as-you-go, auto-pay, usage metering, balance warnings, non-blocking SMTP notifications |
-| **🛡️ Security** | Multi-tenant isolation, O(1) auth lookups, organization-scoped resource gating, secured SSO |
-| **⚡ Resilience** | Hardened VAD, circuit breakers for LLM streams, persistent Redis AgentStore, graceful WebSockets |
-| **🎙️ WebRTC** | Fully bidirectional browser calling with ultra-low latency audio response feedback |
-| **🌍 Languages** | 20+ languages including Hindi, Tamil, Telugu, Bengali (via Sarvam AI) |
-| **🛡️ Content Safety** | Multilingual profanity detection (30+ languages) with empathetic responses |
+| Interface | Command | Use Case |
+|-----------|---------|----------|
+| **Web UI** | `python demo/gradio_app.py` | Best for exploration & testing |
+| **VAD Console**| `python demo/hands_free_assistant.py` | Best for true voice AI experience |
+| **Phone Call** | `.\scripts\make_call.bat` | Best for enterprise telephony testing |
 
 ---
 
@@ -122,6 +48,8 @@ python -m sunona.server
 ### 1. Installation
 
 ```powershell
+# Clone the repo
+git clone https://github.com/sunona-ai-labs/sunona.git
 cd sunona
 
 # Create virtual environment
@@ -141,21 +69,22 @@ cp .env.example .env
 notepad .env  # Add your API keys
 ```
 
-**Minimum required keys:**
-```bash
-# LLM (choose one or both)
-GROQ_API_KEY=gsk_xxxxxxxx           # Fastest (free tier available)
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx  # FREE models available
+**Required for full experience:**
+- **LLM**: `GOOGLE_API_KEY` (Gemini) or `GROQ_API_KEY` (Llama)
+- **STT**: `DEEPGRAM_API_KEY`
+- **TTS**: `ELEVENLABS_API_KEY` (Optional, as Edge TTS is free!)
 
-# Speech-to-Text
-DEEPGRAM_API_KEY=xxxxxxxx
+### 3. Launch the Web Interface (Recommended)
 
-# Text-to-Speech (optional - Edge TTS is FREE and built-in!)
-ELEVENLABS_API_KEY=xxxxxxxx
+Experience everything in a beautiful professional UI:
+```powershell
+python demo/gradio_app.py
 ```
+👉 Open **http://localhost:7860** in your browser.
 
-### 3. Run Examples
+### 4. Try the VAD Assistant (Truly Hands-Free)
 
+Speak naturally without clicking any buttons:
 ```powershell
 # Text-only (LLM only)
 python examples/text_only_assistant.py
@@ -199,80 +128,32 @@ Use these scripts from the root directory to interact with the Sunona API easily
 > These scripts are compatible with both CMD and PowerShell and use `curl.exe` to avoid alias conflicts.
 
 
+---
+
 ## 🤖 AI Agents
 
-Sunona includes **7 specialized agent types** for different use cases:
-
-### Agent Types
+Sunona includes **7 specialized agent types** for different use cases. You can explore these directly in the **Interactive Web Demo**, or use them programmatically:
 
 | Agent | Use Case | Key Features |
 |-------|----------|--------------|
-| **ContextualAgent** | General conversation | Deep context tracking, sentiment awareness, topic management |
-| **ExtractionAgent** | Lead capture, appointments | Extracts names, emails, phones, dates with validation |
-| **GraphAgent** | IVR menus, guided flows | Node-based flows with conditions and actions |
-| **KnowledgeBaseAgent** | FAQ, customer support | RAG-powered answers from your content |
-| **WebhookAgent** | CRM integration | Real-time external system integration |
-| **SummarizationAgent** | Call summaries | Post-call summaries and action items |
-| **AdaptiveAgent** | Dynamic conversations | Auto-switches between modes based on context |
-
-### Smart Agent Selection
-
-```python
-from sunona.agents import select_agent
-
-# Auto-select based on use case
-agent = select_agent(use_case="lead_capture")
-
-# Auto-detect from first message
-agent = select_agent(first_message="I want to book an appointment")
-
-# With knowledge base for FAQ
-agent = select_agent(
-    use_case="faq",
-    knowledge_base=my_knowledge_base,
-)
-```
+| **ContextualAgent** | General conversation | Deep context tracking, sentiment awareness |
+| **ExtractionAgent** | Lead capture | Extracts names, emails, phones with validation |
+| **GraphAgent** | Guided flows | Node-based IVR flows with conditions |
+| **KnowledgeBaseAgent** | Customer support | RAG-powered answers from your content |
+| **SummarizationAgent** | Call summaries | Post-call analysis and action items |
 
 ---
 
 ## 📚 Universal Knowledge Base Builder
 
-Build AI agents from **ANY content source** automatically:
+Build AI agents from **ANY content source** automatically. Sunona can scrape websites, parse PDFs, and ingest structured data to create a custom brain for your agent in seconds.
 
-```python
-from sunona.knowledge import UniversalKnowledgeBuilder
+**Supported Sources:**
+- 🌐 **Website URLs**: Auto-scrapes and extracts FAQ
+- 📄 **PDF/DOCX**: Direct text extraction
+- 📊 **JSON/CSV**: Structured data import
+- 🛍️ **Product Catalogs**: E-commerce support
 
-builder = UniversalKnowledgeBuilder("Acme Corp")
-
-# Add from multiple sources
-await builder.add_website("https://acme.com")
-builder.add_text("Our hours are 9am-5pm Monday to Friday")
-await builder.add_file("products.pdf")
-await builder.add_file("faq.docx")
-builder.add_faq([
-    {"question": "What are your hours?", "answer": "9am-5pm Mon-Fri"}
-])
-
-# Build knowledge base
-knowledge = builder.build()
-
-# Auto-generate AI agent
-agent_config = builder.generate_agent(knowledge, "Acme Assistant")
-```
-
-### Supported Sources
-| Source | Features |
-|--------|----------|
-| 🌐 **Website URLs** | Auto-scrapes, extracts contact info, FAQ |
-| 📄 **PDF documents** | Text extraction from all pages |
-| 📝 **Word documents** | .docx support |
-| 📋 **Text files** | .txt support |
-| 📊 **JSON files** | Structured data parsing |
-| 📈 **CSV files** | Tabular data import |
-| ❓ **Direct FAQ** | Question/answer pairs |
-| 🛍️ **Product catalogs** | Name, description, pricing |
-
----
 
 ## 🔄 Smart Call Transfer
 
@@ -668,8 +549,6 @@ It takes just one click and means the world to us! 🙏
 
 *Chart auto-updates every 10 minutes!* ⚡
 
-**Last Updated:** January 10, 2026 at 03:48 UTC
-
 **[⭐ Star Sunona on GitHub ⭐](https://github.com/Sunona-AI-labs/sunona)**
 
 </div>
@@ -678,5 +557,5 @@ It takes just one click and means the world to us! 🙏
 
 <p align="center">
   <strong>Made with ❤️ by the Sunona Team</strong><br>
-  <em>Building the future of conversational AI</em>
+  <em>Building the future of conversational AI (Updated: January 19, 2026)</em>
 </p>

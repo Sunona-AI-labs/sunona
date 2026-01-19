@@ -1,46 +1,63 @@
-# 🎙️ Sunona Voice AI - Demo
+# 🎙️ Sunona Voice AI - Interactive Demos
 
-Interactive demos showcasing Sunona's voice AI capabilities.
+Professional, high-performance interfaces to experience Sunona's voice AI capabilities.
 
-## Quick Start
+## 🎨 Professional Gradio Interface
+The primary web demo provides a unified experience for all Sunona modules.
+- **Run**: `python gradio_app.py`
+- **Features**: Professional SVG icons, modern gradient UI, and real-time conversation history.
+- **Robustness**: Integrated 5-tier TTS fallback system for enterprise-grade reliability.
 
-```bash
-cd demo
-cp .env.example .env
-# Edit .env with your API keys
-pip install -r requirements.txt
-python gradio_app.py
-# Open http://localhost:7860
-```
+## 🎤 Hands-Free VAD Assistant
+A standalone console experience for true natural voice interaction.
+- **Run**: `python hands_free_assistant.py`
+- **Speech Detection**: Uses advanced VAD to automatically detect when you start and stop talking.
+- **Barge-In**: Interrupt the AI mid-sentence for a more human-like conversation.
 
-## Demos
+---
 
-| Demo | Description | Requirements |
-|------|-------------|--------------|
-| 💬 Text-to-Text | Chat with AI | GOOGLE_API_KEY |
-| 🔊 Text-to-Speech | Ask in text, hear answer | GOOGLE_API_KEY |
-| 🎙️ Speech-to-Speech | Hands-free voice conversation | GOOGLE_API_KEY + DEEPGRAM_API_KEY |
-| 📞 Twilio Call | Real phone call with AI | All + TWILIO credentials |
+## 🚀 Quick Start (Local)
 
-## API Keys
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-| API | Get Key | Free Tier |
-|-----|---------|-----------|
-| Gemini | [AI Studio](https://aistudio.google.com/app/apikey) | 15 RPM |
-| Deepgram | [Console](https://console.deepgram.com/) | $200 credit |
-| ElevenLabs | [Settings](https://elevenlabs.io/app/settings/api-keys) | 10K chars/mo |
-| Twilio | [Console](https://twilio.com/console) | $15.50 credit |
+2. **Setup Credentials**:
+   ```bash
+   cp .env.example .env
+   # Add your GOOGLE_API_KEY, DEEPGRAM_API_KEY, etc.
+   ```
 
-## Deployment
+3. **Launch**:
+   ```bash
+   python gradio_app.py
+   ```
 
-```bash
-# Docker
-docker build -t sunona-demo .
-docker run -p 7860:7860 --env-file .env sunona-demo
+---
 
-# Render
-# Use render.yaml
+## 🏗️ Demo Capabilities
 
-# Railway
-# Use railway.json
-```
+| Demo | Description | Pipeline |
+|------|-------------|----------|
+| **Text-to-Text** | Modern chat interface | Text → LLM → Text |
+| **Text-to-Speech** | Voice response with autoplay | Text → LLM → TTS → Audio |
+| **Speech-to-Speech** | Fully hands-free voice AI | Audio → STT → LLM → TTS → Audio |
+| **Phone Call** | Real Twilio telephony testing | Twilio → Sunona API → Voice |
+
+## 🛡️ Tiered TTS Fallback
+The demos are engineered to never lose their voice:
+1. **User Selected** (e.g., ElevenLabs)
+2. **ElevenLabs** (Premium fallback)
+3. **OpenAI TTS** (Reliable fallback)
+4. **Play.ht** (Secondary fallback)
+5. **Edge TTS (Free)** (Final fail-safe - always works)
+
+---
+
+## 🐳 Deployment (Cloud Ready)
+
+These demos are optimized for cloud platforms like **Render**, **Railway**, and **AWS**:
+- **Render**: Uses `render.yaml` and handles Gradio dependencies automatically.
+- **Docker**: `docker build -t sunona-demo .`
+- **Static Assets**: Unique audio file naming prevents collision in multi-user environments.

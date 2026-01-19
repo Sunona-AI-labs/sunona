@@ -16,6 +16,7 @@ License: MIT
 import os
 import asyncio
 import logging
+import time
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass
 
@@ -70,20 +71,20 @@ class AppConfig:
         ]
         self.DEFAULT_PROMPTS = {
             "text_to_text": (
-                "You are a helpful AI assistant. Be friendly, concise, and informative. "
-                "Provide accurate information and engage in natural conversation."
+                "You are Sunona, a helpful AI assistant. When asked your name, always say 'Sunona'. "
+                "Be friendly, concise, and informative. Provide accurate information and engage in natural conversation."
             ),
             "text_to_speech": (
-                "You are a helpful AI assistant. Keep your responses brief and clear "
-                "for voice output. Aim for 1-2 sentences when possible."
+                "You are Sunona, a helpful AI assistant. When asked your name, always say 'Sunona'. "
+                "Keep your responses brief and clear for voice output. Aim for 1-2 sentences when possible."
             ),
             "speech_to_speech": (
-                "You are Sunona, a friendly voice assistant. Speak naturally and keep "
-                "responses short for smooth conversation. Be warm and helpful."
+                "You are Sunona, a friendly voice assistant. When asked your name, always say 'Sunona'. "
+                "Speak naturally and keep responses short for smooth conversation. Be warm and helpful."
             ),
             "twilio": (
-                "You are Sunona, a professional AI phone assistant. Be polite, helpful, "
-                "and courteous. Keep responses conversational and brief."
+                "You are Sunona, a professional AI phone assistant. When asked your name, always say 'Sunona'. "
+                "Be polite, helpful, and courteous. Keep responses conversational and brief."
             ),
         }
 
@@ -117,45 +118,125 @@ class APIClient:
         provider: str = "Gemini"
     ) -> Tuple[str, Optional[str]]:
         """
-        Get LLM response.
+        Get LLM response with fallback support.
         
         Returns:
             Tuple of (response_text, error_message)
         """
-        try:
-            from litellm import acompletion
-            
-            # Map provider to model
-            model_map = {
-                "Gemini": "gemini/gemini-1.5-flash",
-                "OpenAI GPT": "gpt-4o-mini",
-                "Groq": "groq/llama-3.1-70b-versatile",
-                "Anthropic Claude": "claude-3-5-sonnet-20241022",
-            }
-            
-            model = model_map.get(provider, "gemini/gemini-1.5-flash")
-            
-            response = await acompletion(
-                model=model,
-                messages=messages,
-                api_key=self.llm_key,
-                max_tokens=500,
-                temperature=0.7,
-            )
-            
-            return response.choices[0].message.content, None
-            
-        except Exception as e:
-            error_msg = str(e).lower()
-            if "rate limit" in error_msg or "429" in error_msg:
-                return "", "🧠 LLM: Rate limit exceeded. Add your API key."
-            elif "quota" in error_msg or "credit" in error_msg:
-                return "", "🧠 LLM: Credits exhausted. Add your API key."
-            elif "invalid" in error_msg or "401" in error_msg or "403" in error_msg:
-                return "", "🧠 LLM: Invalid API key. Check your credentials."
-            else:
-                logger.error(f"LLM error: {e}")
-                return "", f"🧠 LLM Error: {str(e)[:100]}"
+        import httpx
+        
+        # Try primary provider, fallback to Groq
+        providers_to_try = [provider]
+        if provider != "Groq" and os.getenv("GROQ_API_KEY"):
+            providers_to_try.append("Groq")
+        
+        last_error = None
+        
+        for current_provider in providers_to_try:
+            try:
+                if current_provider == "Groq":
+                    # Groq is most reliable - use directly
+                    groq_key = self.user_config.get("llm_key") if current_provider == provider else os.getenv("GROQ_API_KEY")
+                    if not groq_key:
+                        groq_key = os.getenv("GROQ_API_KEY")
+                    
+                    if not groq_key:
+                        continue
+                    
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {groq_key}",
+                                "Content-Type": "application/json",
+                            },
+                            json={
+                                "model": "llama-3.3-70b-versatile",
+                                "messages": messages,
+                                "max_tokens": 500,
+                                "temperature": 0.7,
+                            },
+                            timeout=30.0,
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            return result["choices"][0]["message"]["content"], None
+                        else:
+                            raise Exception(f"Groq: {response.status_code}")
+                
+                elif current_provider == "Gemini":
+                    # Try Gemini with different model names
+                    api_key = self.llm_key or os.getenv("GOOGLE_API_KEY")
+                    if not api_key:
+                        continue
+                    
+                    # Build prompt from messages
+                    prompt_parts = []
+                    for msg in messages:
+                        role = msg.get("role", "user")
+                        content = msg.get("content", "")
+                        if role == "system":
+                            prompt_parts.append(f"Instructions: {content}\n\n")
+                        elif role == "user":
+                            prompt_parts.append(f"User: {content}\n")
+                        elif role == "assistant":
+                            prompt_parts.append(f"Assistant: {content}\n")
+                    prompt_parts.append("Assistant: ")
+                    full_prompt = "".join(prompt_parts)
+                    
+                    # Try Gemini REST API directly
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key={api_key}",
+                            json={
+                                "contents": [{"parts": [{"text": full_prompt}]}],
+                                "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7}
+                            },
+                            timeout=30.0,
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            text = result["candidates"][0]["content"]["parts"][0]["text"]
+                            return text, None
+                        else:
+                            raise Exception(f"Gemini: {response.status_code} - {response.text[:100]}")
+                
+                elif current_provider == "OpenAI GPT":
+                    openai_key = self.llm_key or os.getenv("OPENAI_API_KEY")
+                    if not openai_key:
+                        continue
+                    
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            "https://api.openai.com/v1/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {openai_key}",
+                                "Content-Type": "application/json",
+                            },
+                            json={
+                                "model": "gpt-4o-mini",
+                                "messages": messages,
+                                "max_tokens": 500,
+                                "temperature": 0.7,
+                            },
+                            timeout=30.0,
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            return result["choices"][0]["message"]["content"], None
+                        else:
+                            raise Exception(f"OpenAI: {response.status_code}")
+                
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"{current_provider} failed: {e}, trying fallback...")
+                continue
+        
+        # All providers failed
+        return "", f"🧠 LLM Error: {last_error[:100] if last_error else 'No LLM available'}"
     
     async def transcribe_audio(
         self,
@@ -288,119 +369,123 @@ class APIClient:
         voice_id: Optional[str] = None
     ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Synthesize speech from text.
-        
-        Returns:
-            Tuple of (audio_path, error_message)
+        Synthesize speech with multi-layer fallback.
+        Priority: Selected Provider -> ElevenLabs (if key exists) -> OpenAI (if key exists) -> Edge TTS
         """
-        try:
-            import tempfile
-            import httpx
+        import tempfile
+        import httpx
+        import edge_tts
+        
+        audio_path = os.path.join(tempfile.gettempdir(), f"sunona_tts_{int(time.time())}.mp3")
+        
+        # Define priority list for fallbacks
+        try_providers = [provider]
+        
+        # Add fallbacks if not already the primary choice
+        if provider != "ElevenLabs" and (self.user_config.get("tts_key") or os.getenv("ELEVENLABS_API_KEY")):
+            try_providers.append("ElevenLabs")
+        
+        if provider != "OpenAI TTS" and (self.user_config.get("openai_key") or os.getenv("OPENAI_API_KEY")):
+            try_providers.append("OpenAI TTS")
+
+        if provider != "Play.ht" and (self.user_config.get("playht_key") or os.getenv("PLAYHT_API_KEY")):
+            try_providers.append("Play.ht")
             
-            audio_path = os.path.join(tempfile.gettempdir(), "sunona_tts_output.mp3")
-            
-            if provider == "Edge TTS (Free)":
-                import edge_tts
-                voice = voice_id or os.getenv("EDGE_TTS_VOICE", "en-US-AriaNeural")
-                communicate = edge_tts.Communicate(text, voice)
-                await communicate.save(audio_path)
-                return audio_path, None
-            
-            elif provider == "ElevenLabs":
-                tts_key = self.tts_key or os.getenv("ELEVENLABS_API_KEY")
-                voice = voice_id or os.getenv("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")
-                if not tts_key:
-                    return await self.synthesize_speech(text, "Edge TTS (Free)", voice_id)
+        if "Edge TTS (Free)" not in try_providers:
+            try_providers.append("Edge TTS (Free)")
+
+        errors = []
+        
+        for p in try_providers:
+            try:
+                if p == "Edge TTS (Free)":
+                    voice = voice_id or os.getenv("EDGE_TTS_VOICE", "en-US-AriaNeural")
+                    communicate = edge_tts.Communicate(text, voice)
+                    await communicate.save(audio_path)
+                    return audio_path, None
                 
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
-                        headers={"xi-api-key": tts_key, "Content-Type": "application/json"},
-                        json={"text": text, "model_id": "eleven_turbo_v2_5"},
-                        timeout=30.0,
-                    )
-                    if response.status_code == 200:
-                        with open(audio_path, "wb") as f:
-                            f.write(response.content)
-                        return audio_path, None
-                    else:
-                        return await self.synthesize_speech(text, "Edge TTS (Free)")
-            
-            elif provider == "OpenAI TTS":
-                tts_key = self.tts_key or os.getenv("OPENAI_API_KEY")
-                voice = voice_id or os.getenv("OPENAI_TTS_VOICE", "alloy")
-                if not tts_key:
-                    return await self.synthesize_speech(text, "Edge TTS (Free)", voice_id)
+                elif p == "ElevenLabs":
+                    tts_key = self.user_config.get("tts_key") or os.getenv("ELEVENLABS_API_KEY")
+                    voice = voice_id or self.user_config.get("tts_voice") or os.getenv("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")
+                    if not tts_key: continue
+                    
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
+                            headers={"xi-api-key": tts_key, "Content-Type": "application/json"},
+                            json={"text": text, "model_id": "eleven_turbo_v2_5"},
+                            timeout=15.0,
+                        )
+                        if response.status_code == 200:
+                            with open(audio_path, "wb") as f:
+                                f.write(response.content)
+                            return audio_path, None
+                        else:
+                            errors.append(f"ElevenLabs failed: {response.status_code}")
                 
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        "https://api.openai.com/v1/audio/speech",
-                        headers={"Authorization": f"Bearer {tts_key}", "Content-Type": "application/json"},
-                        json={"model": "tts-1", "input": text, "voice": voice},
-                        timeout=30.0,
-                    )
-                    if response.status_code == 200:
-                        with open(audio_path, "wb") as f:
-                            f.write(response.content)
-                        return audio_path, None
-                    else:
-                        return await self.synthesize_speech(text, "Edge TTS (Free)")
-            
-            elif provider == "Deepgram Aura":
-                tts_key = self.tts_key or os.getenv("DEEPGRAM_API_KEY")
-                voice = voice_id or os.getenv("DEEPGRAM_TTS_VOICE", "aura-asteria-en")
-                if not tts_key:
-                    return await self.synthesize_speech(text, "Edge TTS (Free)", voice_id)
+                elif p == "OpenAI TTS":
+                    key = self.user_config.get("openai_key") or os.getenv("OPENAI_API_KEY")
+                    voice = voice_id or os.getenv("OPENAI_TTS_VOICE", "alloy")
+                    if not key: continue
+                    
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            "https://api.openai.com/v1/audio/speech",
+                            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                            json={"model": "tts-1", "input": text, "voice": voice},
+                            timeout=15.0,
+                        )
+                        if response.status_code == 200:
+                            with open(audio_path, "wb") as f:
+                                f.write(response.content)
+                            return audio_path, None
+                        else:
+                            errors.append(f"OpenAI TTS failed: {response.status_code}")
+
+                elif p == "Deepgram Aura":
+                    key = self.user_config.get("stt_key") or os.getenv("DEEPGRAM_API_KEY") 
+                    voice = voice_id or os.getenv("DEEPGRAM_TTS_VOICE", "aura-asteria-en")
+                    if not key: continue
+                    
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            f"https://api.deepgram.com/v1/speak?model={voice}",
+                            headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+                            json={"text": text},
+                            timeout=15.0,
+                        )
+                        if response.status_code == 200:
+                            with open(audio_path, "wb") as f:
+                                f.write(response.content)
+                            return audio_path, None
+                        else:
+                            errors.append(f"Deepgram Aura failed: {response.status_code}")
+
+                elif p == "Play.ht":
+                    api_key = self.user_config.get("playht_key") or os.getenv("PLAYHT_API_KEY")
+                    user_id = self.user_config.get("playht_user_id") or os.getenv("PLAYHT_USER_ID")
+                    voice = voice_id or self.user_config.get("playht_voice") or os.getenv("PLAYHT_VOICE_ID")
+                    if not all([api_key, user_id, voice]): continue
+                    
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            "https://api.play.ht/api/v2/tts",
+                            headers={"Authorization": f"Bearer {api_key}", "X-User-Id": user_id, "Content-Type": "application/json"},
+                            json={"text": text, "voice": voice, "output_format": "mp3"},
+                            timeout=15.0,
+                        )
+                        if response.status_code == 200:
+                            with open(audio_path, "wb") as f:
+                                f.write(response.content)
+                            return audio_path, None
+                        else:
+                            errors.append(f"Play.ht failed: {response.status_code}")
+
+            except Exception as e:
+                errors.append(f"{p} error: {str(e)}")
+                continue
                 
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        f"https://api.deepgram.com/v1/speak?model={voice}",
-                        headers={"Authorization": f"Token {tts_key}", "Content-Type": "application/json"},
-                        json={"text": text},
-                        timeout=30.0,
-                    )
-                    if response.status_code == 200:
-                        with open(audio_path, "wb") as f:
-                            f.write(response.content)
-                        return audio_path, None
-                    else:
-                        return await self.synthesize_speech(text, "Edge TTS (Free)")
-            
-            elif provider == "Play.ht":
-                api_key = os.getenv("PLAYHT_API_KEY")
-                user_id = os.getenv("PLAYHT_USER_ID")
-                voice = voice_id or os.getenv("PLAYHT_VOICE_ID")
-                if not all([api_key, user_id, voice]):
-                    return await self.synthesize_speech(text, "Edge TTS (Free)", voice_id)
-                
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        "https://api.play.ht/api/v2/tts",
-                        headers={"Authorization": f"Bearer {api_key}", "X-User-Id": user_id, "Content-Type": "application/json"},
-                        json={"text": text, "voice": voice, "output_format": "mp3"},
-                        timeout=30.0,
-                    )
-                    if response.status_code == 200:
-                        with open(audio_path, "wb") as f:
-                            f.write(response.content)
-                        return audio_path, None
-                    else:
-                        return await self.synthesize_speech(text, "Edge TTS (Free)")
-            
-            return None, f"🔊 TTS: Provider {provider} not implemented"
-            
-        except Exception as e:
-            error_msg = str(e).lower()
-            if "rate limit" in error_msg or "429" in error_msg:
-                return None, f"🔊 TTS: Rate limit for {provider}. Use Edge TTS (Free)."
-            elif "401" in error_msg or "403" in error_msg:
-                return None, f"🔊 TTS: Invalid {provider} API key."
-            else:
-                logger.error(f"TTS error: {e}")
-                try:
-                    return await self.synthesize_speech(text, "Edge TTS (Free)")
-                except:
-                    return None, f"🔊 TTS Error: {str(e)[:100]}"
+        return None, f"🚫 All TTS providers failed. Last errors: {'; '.join(errors[-2:])}"
 
 
 # ============================================================================
@@ -455,14 +540,133 @@ def create_demo_app():
     # Shared state
     api_client = APIClient()
     
+    # Professional CSS styling
+    custom_css = """
+    /* Global Styles */
+    .gradio-container {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+    
+    /* Hero Header */
+    .hero-title {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        text-align: center;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .hero-subtitle {
+        text-align: center;
+        color: #6b7280 !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 2rem !important;
+    }
+    
+    /* Demo Cards */
+    .demo-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .demo-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        border-color: #a78bfa;
+    }
+    
+    .demo-card h3 {
+        color: #1e293b !important;
+        font-weight: 700 !important;
+        margin-bottom: 8px !important;
+    }
+    
+    /* Buttons */
+    .primary-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 12px 24px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .primary-btn:hover {
+        transform: scale(1.02);
+        box-shadow: 0 10px 15px -3px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+    /* Page Headers */
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700 !important;
+    }
+    
+    /* Status Messages */
+    .error-box { 
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); 
+        padding: 16px; 
+        border-radius: 12px; 
+        border: 1px solid #f87171; 
+    }
+    .success-box { 
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); 
+        padding: 16px; 
+        border-radius: 12px; 
+        border: 1px solid #4ade80; 
+    }
+    .info-box {
+        background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid #38bdf8;
+    }
+    
+    /* Chat/Conversation */
+    .chatbot {
+        border-radius: 16px !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    
+    /* Audio Components */
+    .audio-component {
+        border-radius: 12px !important;
+    }
+    
+    /* Config Page */
+    .config-section {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    /* Footer */
+    .footer-text {
+        text-align: center;
+        color: #9ca3af;
+        font-size: 0.875rem;
+        margin-top: 2rem;
+    }
+    """
+    
     with gr.Blocks(
         title="Sunona Voice AI",
-        theme=gr.themes.Soft(),
-        css="""
-        .error-box { background-color: #fee2e2; padding: 16px; border-radius: 8px; border: 1px solid #ef4444; }
-        .success-box { background-color: #dcfce7; padding: 16px; border-radius: 8px; border: 1px solid #22c55e; }
-        .highlight-section { border: 2px solid #f59e0b !important; }
-        """
+        theme=gr.themes.Soft(
+            primary_hue="violet",
+            secondary_hue="slate",
+            neutral_hue="slate",
+            font=("Inter", "system-ui", "sans-serif")
+        ),
+        css=custom_css
     ) as demo:
         
         # State variables
@@ -471,71 +675,152 @@ def create_demo_app():
         current_prompt = gr.State("")
         error_api = gr.State("")  # Which API failed
         chat_history = gr.State([])
+        s2s_history = gr.State([])  # Speech-to-Speech conversation history
         
         # ================================================================
         # PAGE 1: DEMO SELECTION
         # ================================================================
         with gr.Column(visible=True) as page_demo_select:
-            gr.Markdown("# 🎙️ Sunona Voice AI")
-            gr.Markdown("### Choose a demo to try")
+            gr.Markdown(
+                """
+                <div style="text-align: center; padding: 20px 0;">
+                    <a href="https://github.com/sunona-ai-labs/sunona" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1f2937; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-weight: 600; font-size: 0.9rem; margin-bottom: 16px;">
+                        ⭐ Love it? Star us on GitHub – Help Sunona grow with your support!
+                    </a>
+                    <h1 style="font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+                        🎙️ Sunona Voice AI
+                    </h1>
+                    <p style="color: #6b7280; font-size: 1.1rem;">
+                        Experience the power of conversational AI with voice
+                    </p>
+                </div>
+                """
+            )
             
-            with gr.Row():
-                with gr.Column():
-                    gr.Markdown("""
-                    ### 💬 Text-to-Text
-                    Chat with AI using text.
-                    
-                    **Pipeline:** Text → LLM → Text
-                    """)
-                    btn_demo_t2t = gr.Button("🚀 Try Demo", variant="primary")
-                
-                with gr.Column():
-                    gr.Markdown("""
-                    ### 🔊 Text-to-Speech
-                    Ask in text, hear the answer.
-                    
-                    **Pipeline:** Text → LLM → TTS → Audio
-                    """)
-                    btn_demo_t2s = gr.Button("🚀 Try Demo", variant="primary")
+            gr.Markdown(
+                """
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    <span style="font-size: 1.25rem; font-weight: 700; color: #374151;">Choose Your Demo Experience</span>
+                </div>
+                """
+            )
             
-            with gr.Row():
-                with gr.Column():
-                    gr.Markdown("""
-                    ### 🎙️ Speech-to-Speech
-                    Voice conversation (hands-free).
-                    
-                    **Pipeline:** Audio → STT → LLM → TTS → Audio
-                    """)
-                    btn_demo_s2s = gr.Button("🚀 Try Demo", variant="primary")
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1):
+                    gr.Markdown(
+                        """
+                        <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 16px; padding: 24px; border: 1px solid #bae6fd; height: 100%;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <h3 style="margin: 0; color: #0369a1; font-weight: 700;">Text-to-Text</h3>
+                            </div>
+                            <p style="color: #64748b; margin: 0 0 12px 0;">Chat with Sunona using text messages</p>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Text → LLM → Text</p>
+                        </div>
+                        """
+                    )
+                    btn_demo_t2t = gr.Button("→ Start Chat", variant="primary", size="lg")
                 
-                with gr.Column():
-                    gr.Markdown("""
-                    ### 📞 Twilio Phone Call
-                    Make a real phone call with AI.
-                    
-                    **Pipeline:** Phone → STT → LLM → TTS → Phone
-                    
-                    *⚠️ Requires Twilio credentials*
-                    """)
-                    btn_demo_twilio = gr.Button("🚀 Try Demo", variant="primary")
+                with gr.Column(scale=1):
+                    gr.Markdown(
+                        """
+                        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 16px; padding: 24px; border: 1px solid #86efac; height: 100%;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+                                <h3 style="margin: 0; color: #15803d; font-weight: 700;">Text-to-Speech</h3>
+                            </div>
+                            <p style="color: #64748b; margin: 0 0 12px 0;">Type your question, hear Sunona's voice</p>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Text → LLM → TTS → Audio</p>
+                        </div>
+                        """
+                    )
+                    btn_demo_t2s = gr.Button("→ Start Voice", variant="primary", size="lg")
+            
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1):
+                    gr.Markdown(
+                        """
+                        <div style="background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%); border-radius: 16px; padding: 24px; border: 1px solid #e879f9; height: 100%;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a21caf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                                <h3 style="margin: 0; color: #a21caf; font-weight: 700;">Speech-to-Speech</h3>
+                            </div>
+                            <p style="color: #64748b; margin: 0 0 12px 0;">Full voice conversation with Sunona</p>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Audio → STT → LLM → TTS → Audio</p>
+                        </div>
+                        """
+                    )
+                    btn_demo_s2s = gr.Button("→ Start Conversation", variant="primary", size="lg")
+                
+                with gr.Column(scale=1):
+                    gr.Markdown(
+                        """
+                        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 16px; padding: 24px; border: 1px solid #fbbf24; height: 100%;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                <h3 style="margin: 0; color: #b45309; font-weight: 700;">Phone Call</h3>
+                            </div>
+                            <p style="color: #64748b; margin: 0 0 12px 0;">Sunona calls you on your phone</p>
+                            <p style="color: #374151; font-size: 0.85rem; margin: 0;"><strong>Requires:</strong> Twilio credentials</p>
+                        </div>
+                        """
+                    )
+                    btn_demo_twilio = gr.Button("→ Start Call", variant="primary", size="lg")
             
             gr.Markdown("---")
-            btn_goto_config = gr.Button("⚙️ Configure API Keys")
+            
+            with gr.Row():
+                btn_goto_config = gr.Button("⚙ Configure API Keys", variant="secondary")
+            
+            gr.Markdown(
+                """
+                <div style="text-align: center; margin-top: 24px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <p style="margin: 0 0 12px 0; color: #374151; font-size: 0.95rem;">
+                        ⭐ <strong>Love Sunona?</strong> Star us on GitHub and contribute!
+                    </p>
+                    <a href="https://github.com/sunona-ai-labs/sunona" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #1f2937 0%, #374151 100%); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 0 8px;">
+                        ⭐ Star on GitHub
+                    </a>
+                    <a href="https://github.com/sunona-ai-labs/sunona/blob/master/CONTRIBUTING.md" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 0 8px;">
+                        🤝 Contribute
+                    </a>
+                </div>
+                <div style="text-align: center; color: #9ca3af; font-size: 0.85rem; margin-top: 16px;">
+                    <p>Built with ❤️ by <strong>Sunona AI Labs</strong></p>
+                </div>
+                """
+            )
         
         # ================================================================
         # PAGE 2: PROMPT CONFIGURATION
         # ================================================================
         with gr.Column(visible=False) as page_prompt_config:
-            prompt_title = gr.Markdown("### Configure Demo")
-            btn_back_to_select = gr.Button("← Back to Demo Selection")
+            gr.Markdown(
+                """
+                <h2 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px;">
+                    ✨ Configure Your Experience
+                </h2>
+                """
+            )
+            prompt_title = gr.Markdown("### Setting up your demo...")
             
-            gr.Markdown("#### System Prompt")
-            gr.Markdown("*Customize the AI's personality and behavior*")
+            with gr.Row():
+                btn_back_to_select = gr.Button("← Back", variant="secondary", size="sm")
+            
+            gr.Markdown(
+                """
+                <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin: 16px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: #334155;">🎭 System Prompt</h4>
+                    <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Customize how Sunona behaves and responds. The AI will follow these instructions.</p>
+                </div>
+                """
+            )
             
             prompt_input = gr.Textbox(
                 label="",
-                lines=5,
-                placeholder="Enter your system prompt...",
+                lines=6,
+                placeholder="Enter your system prompt here...\n\nExample: You are Sunona, a helpful AI assistant. Be friendly and concise.",
                 show_label=False
             )
             
@@ -543,27 +828,37 @@ def create_demo_app():
                 btn_enhance = gr.Button("✨ Enhance with AI", variant="secondary")
                 enhance_status = gr.Markdown("")
             
-            gr.Markdown("---")
-            btn_continue_to_demo = gr.Button("Continue to Demo →", variant="primary", size="lg")
+            gr.Markdown("")
+            btn_continue_to_demo = gr.Button("🚀 Continue to Demo →", variant="primary", size="lg")
         
         # ================================================================
         # PAGE 3a: TEXT-TO-TEXT DEMO
         # ================================================================
         with gr.Column(visible=False) as page_text_to_text:
-            gr.Markdown("# 💬 Text-to-Text Demo")
+            gr.Markdown(
+                """
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <h1 style="margin: 0; background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        Chat with Sunona
+                    </h1>
+                </div>
+                """
+            )
             with gr.Row():
-                btn_t2t_edit = gr.Button("← Edit Prompt", size="sm")
-                btn_t2t_home = gr.Button("← Demo Selection", size="sm")
+                btn_t2t_edit = gr.Button("← Edit Prompt", size="sm", variant="secondary")
+                btn_t2t_home = gr.Button("⌂ Home", size="sm", variant="secondary")
             
-            chatbot_t2t = gr.Chatbot(height=400, type="messages")
+            chatbot_t2t = gr.Chatbot(height=450, type="messages", show_label=False)
             
             with gr.Row():
                 msg_t2t = gr.Textbox(
-                    label="Your message",
-                    placeholder="Type your message...",
-                    scale=4
+                    label="",
+                    placeholder="Type your message and press Enter...",
+                    scale=5,
+                    show_label=False
                 )
-                btn_send_t2t = gr.Button("Send", variant="primary", scale=1)
+                btn_send_t2t = gr.Button("Send →", variant="primary", scale=1)
             
             t2t_error = gr.Markdown("", visible=False)
         
@@ -571,22 +866,40 @@ def create_demo_app():
         # PAGE 3b: TEXT-TO-SPEECH DEMO
         # ================================================================
         with gr.Column(visible=False) as page_text_to_speech:
-            gr.Markdown("# 🔊 Text-to-Speech Demo")
-            with gr.Row():
-                btn_t2s_edit = gr.Button("← Edit Prompt", size="sm")
-                btn_t2s_home = gr.Button("← Demo Selection", size="sm")
-            
-            gr.Markdown("*Ask a question in text, hear the AI's response*")
-            
-            question_t2s = gr.Textbox(
-                label="Your Question",
-                placeholder="What would you like to know?",
-                lines=2
+            gr.Markdown(
+                """
+                <h1 style="background: linear-gradient(135deg, #15803d 0%, #22c55e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    🔊 Text-to-Speech
+                </h1>
+                """
             )
-            btn_speak_t2s = gr.Button("🔊 Get Voice Answer", variant="primary")
+            with gr.Row():
+                btn_t2s_edit = gr.Button("← Edit Prompt", size="sm", variant="secondary")
+                btn_t2s_home = gr.Button("🏠 Home", size="sm", variant="secondary")
             
-            response_text_t2s = gr.Textbox(label="AI Response", interactive=False)
-            response_audio_t2s = gr.Audio(label="Voice Response", type="filepath")
+            gr.Markdown(
+                """
+                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; padding: 16px; border: 1px solid #86efac; margin: 12px 0;">
+                    <p style="margin: 0; color: #166534;">💡 Type your question below and hear Sunona respond with voice!</p>
+                </div>
+                """
+            )
+            
+            with gr.Row():
+                question_t2s = gr.Textbox(
+                    label="",
+                    placeholder="Type your question and press Enter...",
+                    lines=2,
+                    scale=5,
+                    show_label=False
+                )
+                btn_speak_t2s = gr.Button("🔊 Speak", variant="primary", scale=1)
+            
+            with gr.Row():
+                with gr.Column():
+                    response_text_t2s = gr.Textbox(label="📝 Sunona's Response", interactive=False, lines=3)
+                with gr.Column():
+                    response_audio_t2s = gr.Audio(label="🔊 Voice", type="filepath", autoplay=True)
             
             t2s_error = gr.Markdown("", visible=False)
         
@@ -594,25 +907,50 @@ def create_demo_app():
         # PAGE 3c: SPEECH-TO-SPEECH DEMO
         # ================================================================
         with gr.Column(visible=False) as page_speech_to_speech:
-            gr.Markdown("# 🎙️ Speech-to-Speech Demo")
+            gr.Markdown(
+                """
+                <h1 style="background: linear-gradient(135deg, #a21caf 0%, #d946ef 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    🎙️ Voice Conversation
+                </h1>
+                """
+            )
             with gr.Row():
-                btn_s2s_edit = gr.Button("← Edit Prompt", size="sm")
-                btn_s2s_home = gr.Button("← Demo Selection", size="sm")
+                btn_s2s_edit = gr.Button("← Edit Prompt", size="sm", variant="secondary")
+                btn_s2s_home = gr.Button("🏠 Home", size="sm", variant="secondary")
             
-            gr.Markdown("*Record your voice, hear the AI respond*")
+            gr.Markdown(
+                """
+                <div style="background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%); border-radius: 12px; padding: 16px; border: 1px solid #e879f9; margin: 12px 0;">
+                    <p style="margin: 0 0 8px 0; color: #86198f;"><strong>🎤 Record your voice</strong> using the microphone, then hear Sunona respond!</p>
+                    <p style="margin: 0; color: #a855f7; font-size: 0.85rem;">💡 Want TRUE hands-free? Run: <code>python demo/hands_free_assistant.py</code></p>
+                </div>
+                """
+            )
+            
+            s2s_status = gr.Markdown("**Status:** 🟢 Ready to record")
             
             audio_input_s2s = gr.Audio(
                 sources=["microphone"],
                 type="filepath",
                 label="🎤 Click to Record"
             )
-            btn_process_s2s = gr.Button("🔄 Process & Respond", variant="primary")
             
-            transcript_s2s = gr.Textbox(label="You said", interactive=False)
-            response_text_s2s = gr.Textbox(label="AI Response", interactive=False)
-            response_audio_s2s = gr.Audio(label="AI Voice", type="filepath")
+            with gr.Row():
+                with gr.Column():
+                    transcript_s2s = gr.Textbox(label="📝 You said", interactive=False, lines=2)
+                with gr.Column():
+                    response_text_s2s = gr.Textbox(label="🤖 Sunona says", interactive=False, lines=2)
+            
+            response_audio_s2s = gr.Audio(label="🔊 AI Voice", type="filepath", autoplay=True)
             
             s2s_error = gr.Markdown("", visible=False)
+            
+            # Conversation history display
+            conversation_display_s2s = gr.Chatbot(
+                label="💬 Conversation History",
+                height=200,
+                type="messages"
+            )
         
         # ================================================================
         # PAGE 3d: TWILIO DEMO
@@ -864,29 +1202,41 @@ def create_demo_app():
             
             return response, audio_path, gr.update(visible=False)
         
-        async def do_speech_to_speech(audio_path: str, prompt: str, cfg: dict):
-            """Process speech-to-speech."""
+        async def do_speech_to_speech(audio_path: str, prompt: str, cfg: dict, history: list):
+            """Process speech-to-speech with conversation history."""
             if not audio_path:
-                return "", "", None, gr.update(visible=False)
+                return "", "", None, gr.update(visible=False), history or [], "**Status:** Waiting for speech..."
             
             client = APIClient(cfg)
+            history = history or []
             
             # Transcribe
             stt_provider = cfg.get("stt_provider", "Deepgram")
             transcript, stt_error = await client.transcribe_audio(audio_path, stt_provider)
             
             if stt_error:
-                return "", "", None, gr.update(value=stt_error, visible=True)
+                return "", "", None, gr.update(value=stt_error, visible=True), history, f"**Status:** ⚠️ {stt_error}"
+            
+            if not transcript.strip():
+                return "", "", None, gr.update(visible=False), history, "**Status:** No speech detected. Try again..."
+            
+            # Build messages with history
+            messages = [{"role": "system", "content": prompt}]
+            for msg in history:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+            messages.append({"role": "user", "content": transcript})
             
             # Get LLM response
-            messages = [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": transcript}
-            ]
             response, llm_error = await client.get_llm_response(messages)
             
             if llm_error:
-                return transcript, "", None, gr.update(value=llm_error, visible=True)
+                return transcript, "", None, gr.update(value=llm_error, visible=True), history, f"**Status:** ⚠️ {llm_error}"
+            
+            # Update history
+            new_history = history + [
+                {"role": "user", "content": transcript},
+                {"role": "assistant", "content": response}
+            ]
             
             # Synthesize speech
             tts_provider = cfg.get("tts_provider", "Edge TTS (Free)")
@@ -894,14 +1244,19 @@ def create_demo_app():
             audio_out, tts_error = await client.synthesize_speech(response, tts_provider, tts_voice)
             
             if tts_error:
-                return transcript, response, None, gr.update(value=tts_error, visible=True)
+                return transcript, response, None, gr.update(value=tts_error, visible=True), new_history, f"**Status:** ⚠️ {tts_error}"
             
-            return transcript, response, audio_out, gr.update(visible=False)
+            return transcript, response, audio_out, gr.update(visible=False), new_history, "**Status:** ✅ Response ready! Speak again to continue..."
         
         async def do_twilio_call(phone: str, prompt: str, cfg: dict):
             """Initiate Twilio call."""
             if not phone.strip():
                 return "Please enter a phone number."
+            
+            # Normalize phone number
+            phone = phone.strip()
+            if not phone.startswith("+"):
+                phone = "+" + phone
             
             twilio_sid = cfg.get("twilio_sid") or os.getenv("TWILIO_ACCOUNT_SID")
             twilio_token = cfg.get("twilio_token") or os.getenv("TWILIO_AUTH_TOKEN")
@@ -912,14 +1267,39 @@ def create_demo_app():
             
             try:
                 from twilio.rest import Client
+                from twilio.twiml.voice_response import VoiceResponse
+                
                 client = Client(twilio_sid, twilio_token)
                 
-                # For demo, we'll just validate and show success
-                # Actual TwiML setup would go here
-                return f"📞 Call initiated to {phone}. Twilio credentials validated."
+                # Create TwiML response with the AI greeting
+                twiml = VoiceResponse()
+                greeting = (
+                    "Hello! I am Sunona, your AI voice assistant. "
+                    "Thank you for trying the Sunona Voice AI demo. "
+                    "This call demonstrates our text to speech capabilities. "
+                    "Have a great day! Goodbye."
+                )
+                twiml.say(greeting, voice="Polly.Joanna", language="en-US")
+                twiml.pause(length=1)
+                twiml.hangup()
+                
+                # Make the call using TwiML directly
+                call = client.calls.create(
+                    to=phone,
+                    from_=twilio_number,
+                    twiml=str(twiml)
+                )
+                
+                return f"✅ Call initiated! Call SID: {call.sid[:20]}... Check your phone!"
                 
             except Exception as e:
-                return f"⚠️ Twilio Error: {str(e)[:100]}"
+                error_msg = str(e)
+                if "unverified" in error_msg.lower():
+                    return f"⚠️ Phone number {phone} is not verified. Add it in Twilio console first (trial accounts only)."
+                elif "Invalid" in error_msg:
+                    return f"⚠️ Invalid phone number format. Use format: +1234567890"
+                else:
+                    return f"⚠️ Twilio Error: {error_msg[:150]}"
         
         # ================================================================
         # WIRE UP EVENTS
@@ -992,18 +1372,31 @@ def create_demo_app():
             outputs=[chatbot_t2t, msg_t2t, t2t_error]
         )
         
-        # Text-to-Speech demo
+        # Text-to-Speech demo - Enter key
+        question_t2s.submit(
+            do_text_to_speech,
+            inputs=[question_t2s, current_prompt, user_config],
+            outputs=[response_text_t2s, response_audio_t2s, t2s_error]
+        ).then(
+            lambda: "",
+            outputs=[question_t2s]
+        )
+        
+        # Text-to-Speech demo - Button click
         btn_speak_t2s.click(
             do_text_to_speech,
             inputs=[question_t2s, current_prompt, user_config],
             outputs=[response_text_t2s, response_audio_t2s, t2s_error]
+        ).then(
+            lambda: "",
+            outputs=[question_t2s]
         )
         
-        # Speech-to-Speech demo
-        btn_process_s2s.click(
+        # Speech-to-Speech demo - auto process when recording stops
+        audio_input_s2s.stop_recording(
             do_speech_to_speech,
-            inputs=[audio_input_s2s, current_prompt, user_config],
-            outputs=[transcript_s2s, response_text_s2s, response_audio_s2s, s2s_error]
+            inputs=[audio_input_s2s, current_prompt, user_config, s2s_history],
+            outputs=[transcript_s2s, response_text_s2s, response_audio_s2s, s2s_error, conversation_display_s2s, s2s_status]
         )
         
         # Twilio demo
