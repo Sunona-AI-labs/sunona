@@ -9,8 +9,8 @@ services:
     plan: free
     
     # Build settings
-    buildCommand: pip install -r requirements.txt
-    startCommand: python gradio_app.py
+    buildCommand: pip install -r requirements.txt && pip install -e .
+    startCommand: python demo/gradio_app.py
     
     # Environment variables
     envVars:
