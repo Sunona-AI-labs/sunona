@@ -947,8 +947,7 @@ def create_demo_app():
             # Conversation history display
             conversation_display_s2s = gr.Chatbot(
                 label="💬 Conversation History",
-                height=200,
-                type="messages"
+                height=200
             )
         
         # ================================================================
