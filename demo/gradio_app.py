@@ -28,6 +28,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 import gradio as gr
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.websockets import WebSocketState
 from fastapi.responses import Response
 import json
 import base64
@@ -1423,8 +1424,16 @@ async def media_stream(websocket: WebSocket):
             if len(chunk) < chunk_size: break
             
             msg = {"event": "media", "streamSid": sid, "media": {"payload": base64.b64encode(chunk).decode()}}
-            await websocket.send_text(json.dumps(msg))
-            sent_chunks += 1
+            try:
+                # Check if socket is still open
+                if websocket.client_state == WebSocketState.CONNECTED:
+                    await websocket.send_text(json.dumps(msg))
+                    sent_chunks += 1
+                else:
+                    break
+            except Exception as e:
+                logger.warning(f"Failed to send media chunk to Twilio: {e}")
+                break
             
             # Target time for this chunk (0.02s per chunk)
             # Subtracting the prefill time to keep overall time aligned
@@ -1455,7 +1464,10 @@ async def media_stream(websocket: WebSocket):
             history.append({"role": "user", "content": transcript})
             
             # 3. LLM Response
-            prompt = context.get("prompt", "You are Sunona AI. Be helpful and natural.")
+            # Add strict brevity instructions for phone calls
+            base_prompt = context.get("prompt", "You are Sunona AI.")
+            prompt = f"{base_prompt}\n\nCONVERSATIONAL RULES:\n1. Keep responses extremely brief (1-2 short sentences max).\n2. Be ultra-natural and conversational.\n3. Do not use lists or markdown formatting."
+            
             messages = [{"role": "system", "content": prompt}] + history[-5:]
             resp, err = await api_client.get_llm_response(messages)
             if not resp: return

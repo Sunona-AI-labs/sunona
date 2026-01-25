@@ -42,3 +42,5 @@ envVarGroups:
         sync: false
       - key: TWILIO_WEBHOOK_URL
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
