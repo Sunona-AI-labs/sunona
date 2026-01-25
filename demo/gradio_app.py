@@ -132,250 +132,110 @@ class APIClient:
         messages: List[Dict[str, str]],
         provider: str = "Gemini"
     ) -> Tuple[str, Optional[str]]:
-        """
-        Get LLM response with fallback support.
-        
-        Returns:
-            Tuple of (response_text, error_message)
-        """
+        """Instant fallback LLM response."""
         import httpx
         
-        # Try primary provider, fallback to Groq
-        providers_to_try = [provider]
-        if provider != "Groq" and os.getenv("GROQ_API_KEY"):
-            providers_to_try.append("Groq")
-        
-        last_error = None
-        
-        for current_provider in providers_to_try:
+        # Priority order for LLMs
+        providers = [provider]
+        if "Groq" not in providers and os.getenv("GROQ_API_KEY"):
+            providers.append("Groq")
+        if "OpenAI GPT" not in providers and os.getenv("OPENAI_API_KEY"):
+            providers.append("OpenAI GPT")
+            
+        last_err = None
+        for p in providers:
             try:
-                if current_provider == "Groq":
-                    # Groq is most reliable - use directly
-                    groq_key = self.user_config.get("llm_key") if current_provider == provider else os.getenv("GROQ_API_KEY")
-                    if not groq_key:
-                        groq_key = os.getenv("GROQ_API_KEY")
-                    
-                    if not groq_key:
-                        continue
-                    
+                if p == "Gemini":
+                    key = self.llm_key or os.getenv("GOOGLE_API_KEY")
+                    if not key: continue
                     async with httpx.AsyncClient() as client:
-                        response = await client.post(
+                        # Direct REST call to avoid library version issues
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+                        # Simple message conversion for Gemini
+                        prompt = ""
+                        for m in messages:
+                            role = "User" if m["role"] == "user" else "Assistant"
+                            if m["role"] == "system": prompt += f"Instructions: {m['content']}\n"
+                            else: prompt += f"{role}: {m['content']}\n"
+                        prompt += "Assistant:"
+                        
+                        resp = await client.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10.0)
+                        if resp.status_code == 200:
+                            return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip(), None
+                        else: raise Exception(f"Gemini {resp.status_code}")
+                
+                elif p == "Groq":
+                    key = os.getenv("GROQ_API_KEY")
+                    if not key: continue
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.post(
                             "https://api.groq.com/openai/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {groq_key}",
-                                "Content-Type": "application/json",
-                            },
-                            json={
-                                "model": "llama-3.3-70b-versatile",
-                                "messages": messages,
-                                "max_tokens": 500,
-                                "temperature": 0.7,
-                            },
-                            timeout=30.0,
+                            headers={"Authorization": f"Bearer {key}"},
+                            json={"model": "llama-3.3-70b-versatile", "messages": messages, "max_tokens": 500},
+                            timeout=10.0
                         )
-                        
-                        if response.status_code == 200:
-                            result = response.json()
-                            return result["choices"][0]["message"]["content"], None
-                        else:
-                            raise Exception(f"Groq: {response.status_code}")
-                
-                elif current_provider == "Gemini":
-                    # Try Gemini with different model names
-                    api_key = self.llm_key or os.getenv("GOOGLE_API_KEY")
-                    if not api_key:
-                        continue
-                    
-                    # Build prompt from messages
-                    prompt_parts = []
-                    for msg in messages:
-                        role = msg.get("role", "user")
-                        content = msg.get("content", "")
-                        if role == "system":
-                            prompt_parts.append(f"Instructions: {content}\n\n")
-                        elif role == "user":
-                            prompt_parts.append(f"User: {content}\n")
-                        elif role == "assistant":
-                            prompt_parts.append(f"Assistant: {content}\n")
-                    prompt_parts.append("Assistant: ")
-                    full_prompt = "".join(prompt_parts)
-                    
-                    # Try Gemini REST API directly
-                    async with httpx.AsyncClient() as client:
-                        response = await client.post(
-                            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
-                            json={
-                                "contents": [{"parts": [{"text": full_prompt}]}],
-                                "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7}
-                            },
-                            timeout=30.0,
-                        )
-                        
-                        if response.status_code == 200:
-                            result = response.json()
-                            text = result["candidates"][0]["content"]["parts"][0]["text"]
-                            return text, None
-                        else:
-                            raise Exception(f"Gemini: {response.status_code} - {response.text[:100]}")
-                
-                elif current_provider == "OpenAI GPT":
-                    openai_key = self.llm_key or os.getenv("OPENAI_API_KEY")
-                    if not openai_key:
-                        continue
-                    
-                    async with httpx.AsyncClient() as client:
-                        response = await client.post(
-                            "https://api.openai.com/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {openai_key}",
-                                "Content-Type": "application/json",
-                            },
-                            json={
-                                "model": "gpt-4o-mini",
-                                "messages": messages,
-                                "max_tokens": 500,
-                                "temperature": 0.7,
-                            },
-                            timeout=30.0,
-                        )
-                        
-                        if response.status_code == 200:
-                            result = response.json()
-                            return result["choices"][0]["message"]["content"], None
-                        else:
-                            raise Exception(f"OpenAI: {response.status_code}")
-                
+                        if resp.status_code == 200:
+                            return resp.json()["choices"][0]["message"]["content"].strip(), None
+                        else: raise Exception(f"Groq {resp.status_code}")
             except Exception as e:
-                last_error = str(e)
-                logger.warning(f"{current_provider} failed: {e}, trying fallback...")
+                logger.warning(f"LLM Provider {p} failed: {e}")
+                last_err = str(e)
                 continue
-        
-        # All providers failed
-        return "", f"🧠 LLM Error: {last_error[:100] if last_error else 'No LLM available'}"
+        return "", f"LLM error: {last_err}"
     
     async def transcribe_audio(
         self,
         audio_path: str,
         provider: str = "Deepgram"
     ) -> Tuple[str, Optional[str]]:
-        """
-        Transcribe audio to text.
+        """Instant fallback transcription."""
+        import httpx
         
-        Returns:
-            Tuple of (transcript, error_message)
-        """
-        try:
-            import httpx
+        providers = [provider]
+        if "Groq Whisper" not in providers and os.getenv("GROQ_API_KEY"):
+            providers.append("Groq Whisper")
             
-            # Detect content type
-            content_type = "audio/wav"
-            if audio_path.endswith(".mp3"):
-                content_type = "audio/mpeg"
-            elif audio_path.endswith(".webm"):
-                content_type = "audio/webm"
-            
-            with open(audio_path, "rb") as f:
-                audio_data = f.read()
-            
-            if provider == "Deepgram":
-                stt_key = self.stt_key or os.getenv("DEEPGRAM_API_KEY")
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        "https://api.deepgram.com/v1/listen",
-                        headers={
-                            "Authorization": f"Token {stt_key}",
-                            "Content-Type": content_type,
-                        },
-                        content=audio_data,
-                        params={"model": "nova-2", "language": "en", "smart_format": "true"},
-                        timeout=30.0,
-                    )
-                    if response.status_code == 200:
-                        result = response.json()
-                        transcript = result["results"]["channels"][0]["alternatives"][0]["transcript"]
-                        return transcript, None
-                    else:
-                        raise Exception(f"Deepgram: {response.status_code}")
-            
-            elif provider == "AssemblyAI":
-                stt_key = self.stt_key or os.getenv("ASSEMBLYAI_API_KEY")
-                async with httpx.AsyncClient() as client:
-                    # Upload
-                    upload = await client.post(
-                        "https://api.assemblyai.com/v2/upload",
-                        headers={"authorization": stt_key},
-                        content=audio_data,
-                        timeout=60.0,
-                    )
-                    upload_url = upload.json()["upload_url"]
-                    
-                    # Transcribe
-                    transcript_req = await client.post(
-                        "https://api.assemblyai.com/v2/transcript",
-                        headers={"authorization": stt_key},
-                        json={"audio_url": upload_url},
-                        timeout=30.0,
-                    )
-                    transcript_id = transcript_req.json()["id"]
-                    
-                    # Poll for result
-                    for _ in range(60):
-                        result = await client.get(
-                            f"https://api.assemblyai.com/v2/transcript/{transcript_id}",
-                            headers={"authorization": stt_key},
-                            timeout=10.0,
+        last_err = None
+        for p in providers:
+            try:
+                with open(audio_path, "rb") as f:
+                    audio_data = f.read()
+                
+                if p == "Deepgram":
+                    key = self.stt_key or os.getenv("DEEPGRAM_API_KEY")
+                    if not key: continue
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.post(
+                            "https://api.deepgram.com/v1/listen",
+                            headers={"Authorization": f"Token {key}", "Content-Type": "audio/wav"},
+                            content=audio_data,
+                            params={"model": "nova-2", "smart_format": "true"},
+                            timeout=15.0
                         )
-                        data = result.json()
-                        if data["status"] == "completed":
-                            return data.get("text", ""), None
-                        elif data["status"] == "error":
-                            raise Exception(data.get("error", "Unknown"))
-                        await asyncio.sleep(1)
-                    raise Exception("Timeout")
-            
-            elif provider == "Groq Whisper":
-                stt_key = self.stt_key or os.getenv("GROQ_API_KEY")
-                async with httpx.AsyncClient() as client:
-                    files = {"file": (os.path.basename(audio_path), audio_data, content_type)}
-                    response = await client.post(
-                        "https://api.groq.com/openai/v1/audio/transcriptions",
-                        headers={"Authorization": f"Bearer {stt_key}"},
-                        files=files,
-                        data={"model": "whisper-large-v3"},
-                        timeout=60.0,
-                    )
-                    if response.status_code == 200:
-                        return response.json().get("text", ""), None
-                    else:
-                        raise Exception(f"Groq: {response.status_code}")
-            
-            elif provider == "OpenAI Whisper":
-                stt_key = self.stt_key or os.getenv("OPENAI_API_KEY")
-                async with httpx.AsyncClient() as client:
-                    files = {"file": (os.path.basename(audio_path), audio_data, content_type)}
-                    response = await client.post(
-                        "https://api.openai.com/v1/audio/transcriptions",
-                        headers={"Authorization": f"Bearer {stt_key}"},
-                        files=files,
-                        data={"model": "whisper-1"},
-                        timeout=60.0,
-                    )
-                    if response.status_code == 200:
-                        return response.json().get("text", ""), None
-                    else:
-                        raise Exception(f"OpenAI: {response.status_code}")
-            
-            return "", f"🎤 STT: Provider {provider} not implemented"
-            
-        except Exception as e:
-            error_msg = str(e).lower()
-            if "rate limit" in error_msg or "429" in error_msg:
-                return "", f"🎤 STT: Rate limit for {provider}. Add your API key."
-            elif "401" in error_msg or "403" in error_msg:
-                return "", f"🎤 STT: Invalid {provider} API key."
-            else:
-                logger.error(f"STT error: {e}")
-                return "", f"🎤 STT Error: {str(e)[:100]}"
+                        if resp.status_code == 200:
+                            return resp.json()["results"]["channels"][0]["alternatives"][0]["transcript"], None
+                        else: raise Exception(f"Deepgram {resp.status_code}")
+                
+                elif p == "Groq Whisper":
+                    key = os.getenv("GROQ_API_KEY")
+                    if not key: continue
+                    async with httpx.AsyncClient() as client:
+                        files = {"file": ("audio.wav", audio_data, "audio/wav")}
+                        resp = await client.post(
+                            "https://api.groq.com/openai/v1/audio/transcriptions",
+                            headers={"Authorization": f"Bearer {key}"},
+                            files=files,
+                            data={"model": "whisper-large-v3"},
+                            timeout=20.0
+                        )
+                        if resp.status_code == 200:
+                            return resp.json().get("text", ""), None
+                        else: raise Exception(f"Groq Whisper {resp.status_code}")
+            except Exception as e:
+                logger.warning(f"STT Provider {p} failed: {e}")
+                last_err = str(e)
+                continue
+        return "", f"STT error: {last_err}"
     
     async def synthesize_speech(
         self,
@@ -1505,69 +1365,45 @@ async def voice_endpoint(request: Request):
 
 @fastapi_app.websocket("/media")
 async def media_stream(websocket: WebSocket):
-    """Twilio Media Stream WebSocket."""
+    """Twilio Media Stream WebSocket with VAD."""
     await websocket.accept()
-    logger.info("Twilio Media Stream started")
+    logger.info("Twilio WebSocket connected")
     
     session_id = websocket.query_params.get("session_id")
-    context = call_contexts.get(session_id, {"prompt": config.DEFAULT_PROMPTS["twilio"], "cfg": {}})
+    context = call_contexts.get(session_id, {"prompt": "Be a helpful assistant.", "cfg": {}})
     
     api_client = APIClient(context["cfg"])
     history = []
     audio_buffer = bytearray()
     stream_sid = None
     
+    # Use SimpleVAD for silence detection
+    from sunona.vad.silero_vad import SimpleVAD
+    vad = SimpleVAD(threshold=0.01) # Low energy threshold for phone calls
+    user_is_speaking = False
+    silence_start = None
+    
     async def send_to_twilio(audio_mulaw, sid):
-        """Helper to send audio to Twilio in 20ms chunks (160 bytes)."""
-        if not sid:
-            return
-        
+        if not sid: return
         chunk_size = 160
         for i in range(0, len(audio_mulaw), chunk_size):
             chunk = audio_mulaw[i:i + chunk_size]
-            media_msg = {
-                "event": "media",
-                "streamSid": sid,
-                "media": {
-                    "payload": base64.b64encode(chunk).decode()
-                }
-            }
-            await websocket.send_text(json.dumps(media_msg))
-            # 20ms delay to simulate real-time stream paced for Twilio
-            await asyncio.sleep(0.015) # slightly faster than 20ms to stay ahead
+            msg = {"event": "media", "streamSid": sid, "media": {"payload": base64.b64encode(chunk).decode()}}
+            await websocket.send_text(json.dumps(msg))
+            await asyncio.sleep(0.018)
 
     async def speak_greeting(sid):
-        """Background task to synthesize and send greeting."""
         try:
-            # Short delay to let the call stabilize
-            await asyncio.sleep(0.5)
-            greeting = "Hello! I am Sunona AI. How can I help you today?"
-            logger.info(f"Synthesizing greeting: {greeting}")
-            
-            tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
-            tts_voice = context["cfg"].get("tts_voice")
-            audio_path, err = await api_client.synthesize_speech(greeting, tts_prov, tts_voice)
-            
-            if audio_path:
-                try:
-                    from pydub import AudioSegment
-                    logger.info(f"Preparing greeting from {audio_path}")
-                    audio = AudioSegment.from_file(audio_path)
-                    audio = audio.set_frame_rate(8000).set_channels(1).set_sample_width(2)
-                    pcm_8k = audio.raw_data
-                    
-                    from sunona.helpers.audio_utils import pcm_to_mulaw
-                    mulaw = pcm_to_mulaw(pcm_8k)
-                    
-                    logger.info(f"Sending greeting to Twilio SID: {sid}")
-                    await send_to_twilio(mulaw, sid)
-                    
-                    try: os.unlink(audio_path)
-                    except: pass
-                except Exception as g_err:
-                    logger.error(f"Greeting preparation failed: {g_err}")
-        except Exception as e:
-            logger.error(f"Greeting error: {e}")
+            await asyncio.sleep(0.8)
+            logger.info("Sending initial greeting")
+            path, err = await api_client.synthesize_speech("Hello, this is Sunona. How can I help you?", "Edge TTS (Free)")
+            if path:
+                from pydub import AudioSegment
+                audio = AudioSegment.from_file(path).set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                from sunona.helpers.audio_utils import pcm_to_mulaw
+                await send_to_twilio(pcm_to_mulaw(audio.raw_data), sid)
+                os.unlink(path)
+        except Exception as e: logger.error(f"Greeting error: {e}")
 
     try:
         async for message in websocket.iter_text():
@@ -1576,89 +1412,75 @@ async def media_stream(websocket: WebSocket):
             
             if event == "start":
                 stream_sid = packet.get("start", {}).get("streamSid")
-                logger.info(f"Stream SID: {stream_sid}")
-                # Start greeting in background
                 asyncio.create_task(speak_greeting(stream_sid))
                 
             elif event == "media":
                 payload = packet.get("media", {}).get("payload")
                 if payload:
-                    audio_mulaw = base64.b64decode(payload)
-                    audio_pcm = mulaw_to_pcm(audio_mulaw)
-                    audio_buffer.extend(audio_pcm)
+                    chunk_mulaw = base64.b64decode(payload)
+                    chunk_pcm = mulaw_to_pcm(chunk_mulaw)
                     
-                    # Process every 1 second of audio
-                    if len(audio_buffer) >= 16000: # 1s at 8kHz 16bit
-                        # Take copy and clear buffer
-                        chunk_to_process = bytes(audio_buffer)
-                        audio_buffer.clear()
+                    # Detect speech
+                    is_speech = await vad.process(chunk_pcm)
+                    
+                    if is_speech:
+                        user_is_speaking = True
+                        silence_start = None
+                        audio_buffer.extend(chunk_pcm)
+                    elif user_is_speaking:
+                        # User stopped speaking, start silence timer
+                        import time
+                        if silence_start is None: silence_start = time.time()
                         
-                        # Process in background to avoid blocking next media packets
-                        async def process_user_audio(audio_data, sid):
-                            import tempfile
-                            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                                from sunona.helpers.audio_utils import pcm_to_wav
-                                wav_data = pcm_to_wav(audio_data, sample_rate=8000)
-                                tf.write(wav_data)
-                                tf_path = tf.name
+                        # Wait for 1.2 seconds of silence before thinking
+                        if time.time() - silence_start > 1.2:
+                            user_is_speaking = False
+                            data_to_process = bytes(audio_buffer)
+                            audio_buffer.clear()
+                            silence_start = None
                             
-                            try:
-                                # 1. Transcribe
-                                stt_prov = context["cfg"].get("stt_provider", "Deepgram")
-                                transcript, err = await api_client.transcribe_audio(tf_path, stt_prov)
-                                os.unlink(tf_path)
-                                
-                                if transcript and len(transcript.strip()) > 3:
+                            async def handle_response(audio_data, sid):
+                                import tempfile
+                                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                                    from sunona.helpers.audio_utils import pcm_to_wav
+                                    tf.write(pcm_to_wav(audio_data, 8000))
+                                    path = tf.name
+                                try:
+                                    # 1. Transcribe
+                                    transcript, err = await api_client.transcribe_audio(path, "Deepgram")
+                                    os.unlink(path)
+                                    if not transcript or len(transcript.strip()) < 2: return
+                                    
                                     logger.info(f"User speaking: {transcript}")
                                     history.append({"role": "user", "content": transcript})
                                     
                                     # 2. LLM
-                                    msgs = [{"role": "system", "content": context["prompt"]}] + history[-5:]
-                                    response, err = await api_client.get_llm_response(msgs)
+                                    prompt = context.get("prompt", "Be a helpful assistant.")
+                                    messages = [{"role": "system", "content": prompt}] + history[-5:]
+                                    resp, err = await api_client.get_llm_response(messages)
+                                    if not resp: return
                                     
-                                    if response:
-                                        logger.info(f"AI responding: {response}")
-                                        history.append({"role": "assistant", "content": response})
-                                        
-                                        # 3. TTS
-                                        tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
-                                        tts_voice = context["cfg"].get("tts_voice")
-                                        path, err = await api_client.synthesize_speech(response, tts_prov, tts_voice)
-                                        
-                                        if path:
-                                            try:
-                                                from pydub import AudioSegment
-                                                logger.info(f"Converting audio response from {path}")
-                                                
-                                                # Use pydub to handle MP3 or WAV
-                                                audio = AudioSegment.from_file(path)
-                                                # Convert to 8kHz mono 16-bit PCM
-                                                audio = audio.set_frame_rate(8000).set_channels(1).set_sample_width(2)
-                                                ai_8k = audio.raw_data
-                                                
-                                                from sunona.helpers.audio_utils import pcm_to_mulaw
-                                                ai_mulaw = pcm_to_mulaw(ai_8k)
-                                                
-                                                logger.info(f"Sending AI response ({len(ai_mulaw)} bytes) to Twilio")
-                                                await send_to_twilio(ai_mulaw, sid)
-                                                try: os.unlink(path)
-                                                except: pass
-                                            except Exception as conv_err:
-                                                logger.error(f"Audio conversion failed: {conv_err}")
-                            except Exception as ex:
-                                logger.error(f"Processing task error: {ex}")
-                        
-                        asyncio.create_task(process_user_audio(chunk_to_process, stream_sid))
+                                    # 3. TTS
+                                    logger.info(f"AI Response: {resp}")
+                                    history.append({"role": "assistant", "content": resp})
+                                    tts_path, err = await api_client.synthesize_speech(resp, "Edge TTS (Free)")
+                                    if tts_path:
+                                        from pydub import AudioSegment
+                                        audio = AudioSegment.from_file(tts_path).set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                                        from sunona.helpers.audio_utils import pcm_to_mulaw
+                                        await send_to_twilio(pcm_to_mulaw(audio.raw_data), sid)
+                                        os.unlink(tts_path)
+                                except Exception as ex: logger.error(f"Response error: {ex}")
+                            
+                            asyncio.create_task(handle_response(data_to_process, stream_sid))
             
-            elif event == "stop":
-                logger.info("Twilio Stream stopped")
-                break
+            elif event == "stop": break
+    except Exception as e: logger.error(f"WebSocket error: {e}")
                 
     except WebSocketDisconnect:
         logger.info("WebSocket Disconnected")
     except Exception as e:
         logger.error(f"WebSocket Error: {e}")
-    finally:
         if session_id in call_contexts:
             # Optionally keep for a while or cleanup
             pass
