@@ -20,6 +20,29 @@ services:
         value: 3.10.12
       - key: LOG_LEVEL
         value: INFO
+      - fromGroup: sunona-secrets
+
+  - type: web
+    name: sunona-twilio-test
+    runtime: python
+    region: oregon
+    plan: free
+    
+    # Build settings
+    buildCommand: pip install -r requirements.txt && pip install -e .
+    startCommand: python demo/twilio_trial_test.py
+    
+    # Environment variables
+    envVars:
+      - key: PORT
+        value: 8001
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - fromGroup: sunona-secrets
+
+envVarGroups:
+  - name: sunona-secrets
+    envVars:
       - key: GOOGLE_API_KEY
         sync: false
       - key: DEEPGRAM_API_KEY
@@ -28,19 +51,11 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
-      - key: PLAYHT_API_KEY
-        sync: false
-      - key: PLAYHT_USER_ID
-        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
         sync: false
       - key: TWILIO_PHONE_NUMBER
         sync: false
-    
-    # Health check
-    healthCheckPath: /
-    
-    # Auto-deploy on push
-    autoDeploy: true
+      - key: NGROK_AUTH_TOKEN
+        sync: false

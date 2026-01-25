@@ -19,9 +19,20 @@ import logging
 import time
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass
+import sys
+from pathlib import Path
+
+# Add project root to path for sunona imports
+sys.path.append(str(Path(__file__).parent.parent))
 
 import gradio as gr
 from dotenv import load_dotenv
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import Response
+import json
+import base64
+import httpx
+from sunona.helpers.audio_utils import convert_audio_format
 
 # Load environment variables
 load_dotenv()
@@ -90,6 +101,10 @@ class AppConfig:
 
 
 config = AppConfig()
+
+# Global storage for call contexts (prompts/config)
+# In production, use Redis. For demo, memory is fine.
+call_contexts = {}
 
 
 # ============================================================================
@@ -1246,8 +1261,8 @@ def create_demo_app():
             
             return transcript, response, audio_out, gr.update(visible=False), new_history, "**Status:** ✅ Response ready! Speak again to continue..."
         
-        async def do_twilio_call(phone: str, prompt: str, cfg: dict):
-            """Initiate Twilio call."""
+        async def do_twilio_call(phone: str, prompt: str, cfg: dict, gr_request: gr.Request):
+            """Initiate Twilio call with real-time streaming."""
             if not phone.strip():
                 return "Please enter a phone number."
             
@@ -1265,37 +1280,42 @@ def create_demo_app():
             
             try:
                 from twilio.rest import Client
-                from twilio.twiml.voice_response import VoiceResponse
+                
+                # Store context for the stream
+                session_id = f"sess_{int(time.time())}"
+                call_contexts[session_id] = {
+                    "prompt": prompt,
+                    "cfg": cfg
+                }
                 
                 client = Client(twilio_sid, twilio_token)
                 
-                # Create TwiML response with the AI greeting
-                twiml = VoiceResponse()
-                greeting = (
-                    "Hello! I am Sunona, your AI voice assistant. "
-                    "Thank you for trying the Sunona Voice AI demo. "
-                    "This call demonstrates our text to speech capabilities. "
-                    "Have a great day! Goodbye."
-                )
-                twiml.say(greeting, voice="Polly.Joanna", language="en-US")
-                twiml.pause(length=1)
-                twiml.hangup()
+                # Determine webhook URL
+                # If NGROK is running or TWILIO_WEBHOOK_URL is set, use it.
+                # Otherwise try to guess from the Gradio request.
+                webhook_url = os.getenv("TWILIO_WEBHOOK_URL")
+                if not webhook_url:
+                    # Attempt to derive from the current request URL
+                    base_url = str(gr_request.request.base_url).rstrip("/")
+                    webhook_url = f"{base_url}/voice"
                 
-                # Make the call using TwiML directly
+                # Append session_id
+                final_webhook_url = f"{webhook_url}?session_id={session_id}"
+                
+                # Make the call using our webhook URL
                 call = client.calls.create(
                     to=phone,
                     from_=twilio_number,
-                    twiml=str(twiml)
+                    url=final_webhook_url,
+                    method="POST"
                 )
                 
-                return f"✅ Call initiated! Call SID: {call.sid[:20]}... Check your phone!"
+                return f"✅ Real-time call initiated! (ID: {call.sid[:10]})\nAnswer your phone and press any key to start talking."
                 
             except Exception as e:
                 error_msg = str(e)
                 if "unverified" in error_msg.lower():
-                    return f"⚠️ Phone number {phone} is not verified. Add it in Twilio console first (trial accounts only)."
-                elif "Invalid" in error_msg:
-                    return f"⚠️ Invalid phone number format. Use format: +1234567890"
+                    return f"⚠️ Phone number {phone} is not verified. Add it in Twilio console (trial account limitation)."
                 else:
                     return f"⚠️ Twilio Error: {error_msg[:150]}"
         
@@ -1431,6 +1451,152 @@ def create_demo_app():
 
 
 # ============================================================================
+# FASTAPI WRAPPER FOR REAL-TIME STREAMING
+# ============================================================================
+
+fastapi_app = FastAPI()
+
+@fastapi_app.post("/voice")
+async def voice_endpoint(request: Request):
+    """Twilio Webhook endpoint."""
+    session_id = request.query_params.get("session_id")
+    
+    # Generate WebSocket URL
+    host = request.headers.get("host")
+    protocol = "wss" if "ngrok" in host or request.headers.get("x-forwarded-proto") == "https" else "ws"
+    ws_url = f"{protocol}://{host}/media"
+    if session_id:
+        ws_url = f"{ws_url}?session_id={session_id}"
+    
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say voice="alice">Sunona AI connecting... Press any key to start our conversation.</Say>
+    <Connect>
+        <Stream url="{ws_url}" />
+    </Connect>
+</Response>"""
+    return Response(content=twiml, media_type="application/xml")
+
+@fastapi_app.websocket("/media")
+async def media_stream(websocket: WebSocket):
+    """Twilio Media Stream WebSocket."""
+    await websocket.accept()
+    logger.info("Twilio Media Stream started")
+    
+    session_id = websocket.query_params.get("session_id")
+    context = call_contexts.get(session_id, {"prompt": config.DEFAULT_PROMPTS["twilio"], "cfg": {}})
+    
+    api_client = APIClient(context["cfg"])
+    history = []
+    audio_buffer = bytearray()
+    stream_sid = None
+    
+    try:
+        async for message in websocket.iter_text():
+            packet = json.loads(message)
+            event = packet.get("event")
+            
+            if event == "start":
+                stream_sid = packet.get("start", {}).get("streamSid")
+                logger.info(f"Stream SID: {stream_sid}")
+                
+            elif event == "media":
+                payload = packet.get("media", {}).get("payload")
+                if payload:
+                    # Convert mulaw to PCM and add to buffer
+                    audio_mulaw = base64.b64decode(payload)
+                    from sunona.helpers.audio_utils import mulaw_to_pcm
+                    audio_pcm = mulaw_to_pcm(audio_mulaw)
+                    audio_buffer.extend(audio_pcm)
+                    
+                    # If buffer > 1s, process it
+                    # 1s of 16k mono 16bit is 32000 bytes
+                    # However Twilio is 8k, so it's 16000 bytes if upsampled, 
+                    # but here we keep it simple.
+                    if len(audio_buffer) >= 32000:
+                        # Process audio
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                            from sunona.helpers.audio_utils import pcm_to_wav
+                            # Twilio is 8k, but Deepgram likes 16k usually. 
+                            # mulaw_to_pcm above doesn't resample.
+                            # So it's 8k PCM.
+                            wav_data = pcm_to_wav(bytes(audio_buffer), sample_rate=8000)
+                            tf.write(wav_data)
+                            temp_name = tf.name
+                        
+                        try:
+                            # 1. Transcribe
+                            stt_prov = context["cfg"].get("stt_provider", "Deepgram")
+                            transcript, err = await api_client.transcribe_audio(temp_name, stt_prov)
+                            os.unlink(temp_name)
+                            
+                            if transcript and len(transcript.strip()) > 3:
+                                logger.info(f"User (Phone): {transcript}")
+                                history.append({"role": "user", "content": transcript})
+                                
+                                # 2. Generate LLM
+                                msgs = [{"role": "system", "content": context["prompt"]}] + history[-5:]
+                                response, err = await api_client.get_llm_response(msgs)
+                                
+                                if response:
+                                    logger.info(f"AI (Phone): {response}")
+                                    history.append({"role": "assistant", "content": response})
+                                    
+                                    # 3. Synthesize
+                                    tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
+                                    tts_voice = context["cfg"].get("tts_voice")
+                                    audio_path, err = await api_client.synthesize_speech(response, tts_prov, tts_voice)
+                                    
+                                    if audio_path:
+                                        with open(audio_path, "rb") as af:
+                                            ai_audio_pcm = af.read()
+                                        
+                                        # Edge TTS is 24k usually. Need to convert to 8k mulaw.
+                                        from sunona.helpers.audio_utils import resample_audio, pcm_to_mulaw
+                                        # Extract PCM from wav first if it's wav
+                                        from sunona.helpers.audio_utils import wav_to_pcm
+                                        if ai_audio_pcm.startswith(b'RIFF'):
+                                            ai_audio_pcm = wav_to_pcm(ai_audio_pcm)
+                                            
+                                        # Resample to 8k
+                                        ai_audio_8k = resample_audio(ai_audio_pcm, 24000, 8000)
+                                        ai_audio_mulaw = pcm_to_mulaw(ai_audio_8k)
+                                        
+                                        # Send back to Twilio
+                                        media_msg = {
+                                            "event": "media",
+                                            "streamSid": stream_sid,
+                                            "media": {
+                                                "payload": base64.b64encode(ai_audio_mulaw).decode()
+                                            }
+                                        }
+                                        await websocket.send_text(json.dumps(media_msg))
+                                        os.unlink(audio_path)
+                        except Exception as e:
+                            logger.error(f"Stream processing error: {e}")
+                        
+                        audio_buffer.clear()
+            
+            elif event == "stop":
+                logger.info("Twilio Stream stopped")
+                break
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket Disconnected")
+    except Exception as e:
+        logger.error(f"WebSocket Error: {e}")
+    finally:
+        if session_id in call_contexts:
+            # Optionally keep for a while or cleanup
+            pass
+
+# Mount Gradio on FastAPI
+demo_app = create_demo_app()
+app = gr.mount_gradio_app(fastapi_app, demo_app, path="/")
+
+
+# ============================================================================
 # MAIN
 # ============================================================================
 
@@ -1438,92 +1604,7 @@ if __name__ == "__main__":
     # Support standard PORT (Render/Heroku) and DEMO_PORT
     port = int(os.getenv("PORT") or os.getenv("DEMO_PORT") or 7860)
     
-    logger.info(f"Starting Sunona Demo on port {port}")
+    logger.info(f"Starting Sunona Demo + Twilio Stream on port {port}")
     
-    # Create and launch demo
-    # Note: theme and css moved to launch for Gradio 6.0+ compatibility
-    custom_css = """
-    /* Global Styles */
-    .gradio-container {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    }
-    
-    /* Hero Header */
-    .hero-title {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.5rem !important;
-        font-weight: 800 !important;
-        text-align: center;
-        margin-bottom: 0.5rem !important;
-    }
-    
-    .hero-subtitle {
-        text-align: center;
-        color: #6b7280 !important;
-        font-size: 1.1rem !important;
-        margin-bottom: 2rem !important;
-    }
-    
-    /* Demo Cards */
-    .demo-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 24px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-    
-    .demo-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        border-color: #a78bfa;
-    }
-    
-    .demo-card h3 {
-        color: #1e293b !important;
-        font-weight: 700 !important;
-        margin-bottom: 8px !important;
-    }
-    
-    /* Buttons */
-    .primary-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 12px 24px !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .primary-btn:hover {
-        transform: scale(1.02);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Footer */
-    .footer-text {
-        text-align: center;
-        color: #9ca3af;
-        font-size: 0.875rem;
-        margin-top: 2rem;
-    }
-    """
-    theme = gr.themes.Soft(
-        primary_hue="violet",
-        secondary_hue="slate",
-        neutral_hue="slate",
-        font=("Inter", "system-ui", "sans-serif")
-    )
-    
-    app = create_demo_app()
-    app.launch(
-        server_name="0.0.0.0",
-        server_port=port,
-        share=False,
-        show_error=True,
-        theme=theme,
-        css=custom_css
-    )
+    import uvicorn
+    uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
