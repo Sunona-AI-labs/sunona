@@ -1380,6 +1380,8 @@ async def media_stream(websocket: WebSocket):
     audio_buffer = bytearray()
     stream_sid = None
     
+    # State tracking
+    from sunona.vad.silero_vad import SimpleVAD
     vad = SimpleVAD(threshold=0.04)
     user_is_speaking = False
     silence_start = None
