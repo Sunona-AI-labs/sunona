@@ -1385,8 +1385,9 @@ async def media_stream(websocket: WebSocket):
     vad = SimpleVAD(threshold=0.04)
     user_is_speaking = False
     silence_start = None
+    speech_start_time = 0
     active_ai_task = None
-    last_ai_speech_time = 0 # For echo suppression cooldown
+    last_ai_speech_time = 0 
 
     async def cancel_ai_speech():
         """Cancel current AI response and clear Twilio buffer."""
@@ -1535,32 +1536,43 @@ async def media_stream(websocket: WebSocket):
                 payload = packet.get("media", {}).get("payload")
                 if payload:
                     import time
+                    cur_now = time.time()
                     # Echo suppression cooldown (ignore speech for 600ms after AI finishes)
-                    if time.time() - last_ai_speech_time < 0.6:
+                    if cur_now - last_ai_speech_time < 0.6:
                         continue
                         
                     chunk_pcm = mulaw_to_pcm(base64.b64decode(payload))
                     is_speech = await vad.process(chunk_pcm)
                     
                     if is_speech:
-                        # Cancel AI speaking if it currently is
-                        await cancel_ai_speech()
-                        
-                        user_is_speaking = True
+                        if not user_is_speaking:
+                            logger.info("VAD: User started speaking")
+                            await cancel_ai_speech()
+                            user_is_speaking = True
+                            speech_start_time = cur_now
+                            
                         silence_start = None
                         audio_buffer.extend(chunk_pcm)
-                    elif user_is_speaking:
-                        if silence_start is None: silence_start = time.time()
                         
-                        # Wait for 0.8s of silence (fast & snappy)
-                        if time.time() - silence_start > 0.8:
+                        # Safety: If user speaks for > 6s, force process (prevents noise lockup)
+                        if cur_now - speech_start_time > 6.0:
+                            logger.info("VAD: Max speech duration reached, triggering AI")
                             user_is_speaking = False
-                            data_to_process = bytes(audio_buffer)
+                            data = bytes(audio_buffer)
+                            audio_buffer.clear()
+                            active_ai_task = asyncio.create_task(handle_interaction(data, stream_sid))
+                            
+                    elif user_is_speaking:
+                        if silence_start is None: silence_start = cur_now
+                        
+                        # Wait for 0.8s of silence
+                        if cur_now - silence_start > 0.8:
+                            logger.info("VAD: User finished speaking")
+                            user_is_speaking = False
+                            data = bytes(audio_buffer)
                             audio_buffer.clear()
                             silence_start = None
-                            
-                            # Start new interaction task
-                            active_ai_task = asyncio.create_task(handle_interaction(data_to_process, stream_sid))
+                            active_ai_task = asyncio.create_task(handle_interaction(data, stream_sid))
             
             elif event == "stop": break
     except Exception as e:
