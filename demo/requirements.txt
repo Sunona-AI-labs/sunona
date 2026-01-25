@@ -3,7 +3,8 @@
 # Web Framework & UI
 gradio>=6.4.0
 fastapi>=0.115.0
-uvicorn>=0.34.0
+uvicorn[standard]>=0.34.0
+websockets>=13.1
 
 # HTTP Client
 httpx>=0.25.0
