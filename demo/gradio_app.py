@@ -1573,6 +1573,9 @@ async def media_stream(websocket: WebSocket):
                             user_is_speaking = False
                             data = bytes(audio_buffer)
                             audio_buffer.clear()
+                            speech_start_time = 0 
+                            # Set a long silence_start to prevent re-triggering immediately
+                            last_ai_speech_time = cur_now + 1.0 
                             active_ai_task = asyncio.create_task(handle_interaction(data, stream_sid))
                             
                     elif user_is_speaking:
@@ -1586,6 +1589,7 @@ async def media_stream(websocket: WebSocket):
                             data = bytes(audio_buffer)
                             audio_buffer.clear()
                             silence_start = None
+                            speech_start_time = 0
                             active_ai_task = asyncio.create_task(handle_interaction(data, stream_sid))
             
             elif event == "stop": break
