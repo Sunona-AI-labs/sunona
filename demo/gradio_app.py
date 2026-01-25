@@ -1483,8 +1483,8 @@ async def media_stream(websocket: WebSocket):
             logger.info(f"AI: {resp}")
             history.append({"role": "assistant", "content": resp})
             
-            # 4. Synthesize
-            tts_path, err = await api_client.synthesize_speech(resp, "Edge TTS (Free)")
+            # 4. Synthesize (ElevenLabs primary, Edge TTS fallback)
+            tts_path, err = await api_client.synthesize_speech(resp, "ElevenLabs")
             if tts_path:
                 try:
                     from pydub import AudioSegment, effects
@@ -1520,7 +1520,7 @@ async def media_stream(websocket: WebSocket):
                 async def greet():
                     nonlocal active_ai_task
                     await asyncio.sleep(0.5)
-                    path, err = await api_client.synthesize_speech("Hello! This is Sunona. How can I help you?", "Edge TTS (Free)")
+                    path, err = await api_client.synthesize_speech("Hello! This is Sunona. How can I help you?", "ElevenLabs")
                     if path:
                         try:
                             from pydub import AudioSegment
