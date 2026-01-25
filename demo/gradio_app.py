@@ -593,7 +593,7 @@ def create_demo_app():
                                 <h3 style="margin: 0; color: #0369a1; font-weight: 700;">Text-to-Text</h3>
                             </div>
                             <p style="color: #64748b; margin: 0 0 12px 0;">Chat with Sunona using text messages</p>
-                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Text → LLM → Text</p>
+                            <p style="color: #000000; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Text → LLM → Text</p>
                         </div>
                         """
                     )
@@ -608,7 +608,7 @@ def create_demo_app():
                                 <h3 style="margin: 0; color: #15803d; font-weight: 700;">Text-to-Speech</h3>
                             </div>
                             <p style="color: #64748b; margin: 0 0 12px 0;">Type your question, hear Sunona's voice</p>
-                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Text → LLM → TTS → Audio</p>
+                            <p style="color: #000000; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Text → LLM → TTS → Audio</p>
                         </div>
                         """
                     )
@@ -624,7 +624,7 @@ def create_demo_app():
                                 <h3 style="margin: 0; color: #a21caf; font-weight: 700;">Speech-to-Speech</h3>
                             </div>
                             <p style="color: #64748b; margin: 0 0 12px 0;">Full voice conversation with Sunona</p>
-                            <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Audio → STT → LLM → TTS → Audio</p>
+                            <p style="color: #000000; font-size: 0.85rem; margin: 0;"><strong>Pipeline:</strong> Audio → STT → LLM → TTS → Audio</p>
                         </div>
                         """
                     )
@@ -653,7 +653,7 @@ def create_demo_app():
             gr.Markdown(
                 """
                 <div style="text-align: center; margin-top: 24px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; border: 1px solid #e2e8f0;">
-                    <p style="margin: 0 0 12px 0; color: #374151; font-size: 0.95rem;">
+                    <p style="margin: 0 0 12px 0; color: #000000; font-size: 0.95rem;">
                         ⭐ <strong>Love Sunona?</strong> Star us on GitHub and contribute!
                     </p>
                     <a href="https://github.com/sunona-ai-labs/sunona" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #1f2937 0%, #374151 100%); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 0 8px;">
