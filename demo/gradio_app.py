@@ -1456,6 +1456,10 @@ def create_demo_app():
 
 fastapi_app = FastAPI()
 
+@fastapi_app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 @fastapi_app.post("/voice")
 async def voice_endpoint(request: Request):
     """Twilio Webhook endpoint."""
@@ -1607,4 +1611,4 @@ if __name__ == "__main__":
     logger.info(f"Starting Sunona Demo + Twilio Stream on port {port}")
     
     import uvicorn
-    uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)
