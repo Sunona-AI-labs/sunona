@@ -1466,20 +1466,37 @@ async def voice_endpoint(request: Request):
     session_id = request.query_params.get("session_id")
     
     # Generate WebSocket URL
-    host = request.headers.get("host")
-    protocol = "wss" if "ngrok" in host or request.headers.get("x-forwarded-proto") == "https" else "ws"
+    # 1. Try environment variable first (most reliable)
+    # 2. Try headers (Render specific)
+    # 3. Fallback to host header
+    env_url = os.getenv("TWILIO_WEBHOOK_URL", "")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    
+    if env_url:
+        # Extract host from URL if it starts with http
+        if env_url.startswith("http"):
+            from urllib.parse import urlparse
+            host = urlparse(env_url).netloc
+        else:
+            host = env_url
+            
+    protocol = "wss" if "ngrok" in host or request.headers.get("x-forwarded-proto") == "https" or ".onrender.com" in host else "ws"
     ws_url = f"{protocol}://{host}/media"
+    
     if session_id:
         ws_url = f"{ws_url}?session_id={session_id}"
+        
+    logger.info(f"Generated WebSocket URL: {ws_url}")
     
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Say voice="alice">Sunona AI connecting... Press any key to start our conversation.</Say>
     <Connect>
         <Stream url="{ws_url}" />
     </Connect>
+    <Say voice="alice">Connected. Welcome to Sunona AI.</Say>
+    <Pause length="40"/>
 </Response>"""
-    return Response(content=twiml, media_type="application/xml")
+    return Response(content=twiml, media_type="text/xml")
 
 @fastapi_app.websocket("/media")
 async def media_stream(websocket: WebSocket):
