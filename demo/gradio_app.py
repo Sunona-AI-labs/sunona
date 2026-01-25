@@ -1517,7 +1517,30 @@ async def media_stream(websocket: WebSocket):
     audio_buffer = bytearray()
     stream_sid = None
     
+    # 1. Send initial greeting
     try:
+        greeting = "Hello! I am Sunona AI. How can I help you today?"
+        logger.info(f"Sending greeting: {greeting}")
+        tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
+        tts_voice = context["cfg"].get("tts_voice")
+        audio_path, err = await api_client.synthesize_speech(greeting, tts_prov, tts_voice)
+        
+        if audio_path:
+            with open(audio_path, "rb") as af:
+                ai_audio_pcm = af.read()
+            
+            if ai_audio_pcm.startswith(b'RIFF'):
+                from sunona.helpers.audio_utils import wav_to_pcm
+                ai_audio_pcm = wav_to_pcm(ai_audio_pcm)
+                
+            from sunona.helpers.audio_utils import resample_audio, pcm_to_mulaw
+            ai_audio_8k = resample_audio(ai_audio_pcm, 24000, 8000)
+            ai_audio_mulaw = pcm_to_mulaw(ai_audio_8k)
+            
+            # We wait for the stream SID to arrive before sending, 
+            # but we can also store it and send as soon as 'start' event hits.
+    except Exception as e:
+        logger.error(f"Failed to send greeting: {e}")
         async for message in websocket.iter_text():
             packet = json.loads(message)
             event = packet.get("event")
@@ -1525,6 +1548,20 @@ async def media_stream(websocket: WebSocket):
             if event == "start":
                 stream_sid = packet.get("start", {}).get("streamSid")
                 logger.info(f"Stream SID: {stream_sid}")
+                
+                # Send the greeting now that we have the SIS
+                if 'ai_audio_mulaw' in locals():
+                    media_msg = {
+                        "event": "media",
+                        "streamSid": stream_sid,
+                        "media": {
+                            "payload": base64.b64encode(ai_audio_mulaw).decode()
+                        }
+                    }
+                    await websocket.send_text(json.dumps(media_msg))
+                    if 'audio_path' in locals():
+                        try: os.unlink(audio_path)
+                        except: pass
                 
             elif event == "media":
                 payload = packet.get("media", {}).get("payload")
@@ -1534,11 +1571,9 @@ async def media_stream(websocket: WebSocket):
                     audio_pcm = mulaw_to_pcm(audio_mulaw)
                     audio_buffer.extend(audio_pcm)
                     
-                    # If buffer > 1s, process it
-                    # 1s of 16k mono 16bit is 32000 bytes
-                    # However Twilio is 8k, so it's 16000 bytes if upsampled, 
-                    # but here we keep it simple.
-                    if len(audio_buffer) >= 32000:
+                    # Reduce buffer to 800ms (12800 bytes at 8kHz 16-bit)
+                    # for much faster reactivity.
+                    if len(audio_buffer) >= 12800:
                         # Process audio
                         import tempfile
                         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
