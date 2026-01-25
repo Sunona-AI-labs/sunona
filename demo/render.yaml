@@ -9,35 +9,18 @@ services:
     plan: free
     
     # Build settings
-    buildCommand: pip install -r requirements.txt && pip install -e .
+    # This will automatically install requirements.txt via pyproject.toml
+    buildCommand: pip install .
     startCommand: python demo/gradio_app.py
     
     # Environment variables
     envVars:
-      - key: DEMO_PORT
-        value: 7860
+      - key: PORT
+        value: 10000
       - key: PYTHON_VERSION
-        value: 3.10.12
+        value: 3.11.0
       - key: LOG_LEVEL
         value: INFO
-      - fromGroup: sunona-secrets
-
-  - type: web
-    name: sunona-twilio-test
-    runtime: python
-    region: oregon
-    plan: free
-    
-    # Build settings
-    buildCommand: pip install -r requirements.txt && pip install -e .
-    startCommand: python demo/twilio_trial_test.py
-    
-    # Environment variables
-    envVars:
-      - key: PORT
-        value: 8001
-      - key: PYTHON_VERSION
-        value: 3.10.12
       - fromGroup: sunona-secrets
 
 envVarGroups:
@@ -57,5 +40,5 @@ envVarGroups:
         sync: false
       - key: TWILIO_PHONE_NUMBER
         sync: false
-      - key: NGROK_AUTH_TOKEN
+      - key: TWILIO_WEBHOOK_URL
         sync: false
