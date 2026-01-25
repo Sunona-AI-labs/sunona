@@ -1384,13 +1384,36 @@ async def media_stream(websocket: WebSocket):
     silence_start = None
     
     async def send_to_twilio(audio_mulaw, sid):
+        """Send audio to Twilio with high-precision 20ms pacing."""
         if not sid: return
-        chunk_size = 160
+        import time
+        
+        chunk_size = 160 # 20ms of 8000Hz 8-bit mulaw
+        start_time = time.perf_counter()
+        sent_chunks = 0
+        
         for i in range(0, len(audio_mulaw), chunk_size):
             chunk = audio_mulaw[i:i + chunk_size]
-            msg = {"event": "media", "streamSid": sid, "media": {"payload": base64.b64encode(chunk).decode()}}
-            await websocket.send_text(json.dumps(msg))
-            await asyncio.sleep(0.018)
+            if len(chunk) < chunk_size: continue
+            
+            try:
+                msg = {
+                    "event": "media",
+                    "streamSid": sid,
+                    "media": {"payload": base64.b64encode(chunk).decode()}
+                }
+                await websocket.send_text(json.dumps(msg))
+                sent_chunks += 1
+                
+                # High-precision pacing logic
+                target_time = start_time + (sent_chunks * 0.02)
+                remaining = target_time - time.perf_counter()
+                
+                if remaining > 0:
+                    await asyncio.sleep(remaining)
+            except Exception as e:
+                logger.error(f"Error sending audio chunk: {e}")
+                break
 
     async def speak_greeting(sid):
         try:
@@ -1474,15 +1497,11 @@ async def media_stream(websocket: WebSocket):
                             
                             asyncio.create_task(handle_response(data_to_process, stream_sid))
             
-            elif event == "stop": break
-    except Exception as e: logger.error(f"WebSocket error: {e}")
-                
-    except WebSocketDisconnect:
-        logger.info("WebSocket Disconnected")
     except Exception as e:
-        logger.error(f"WebSocket Error: {e}")
+        logger.error(f"WebSocket Loop Error: {e}")
+    finally:
+        logger.info("Twilio WebSocket disconnecting")
         if session_id in call_contexts:
-            # Optionally keep for a while or cleanup
             pass
 
 # Mount Gradio on FastAPI
