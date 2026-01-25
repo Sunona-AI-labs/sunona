@@ -1380,12 +1380,11 @@ async def media_stream(websocket: WebSocket):
     audio_buffer = bytearray()
     stream_sid = None
     
-    # State tracking
-    from sunona.vad.silero_vad import SimpleVAD
-    vad = SimpleVAD(threshold=0.04) # Slightly higher to ignore line hiss
+    vad = SimpleVAD(threshold=0.04)
     user_is_speaking = False
     silence_start = None
-    active_ai_task = None # Tracks current speaking/processing task
+    active_ai_task = None
+    last_ai_speech_time = 0 # For echo suppression cooldown
 
     async def cancel_ai_speech():
         """Cancel current AI response and clear Twilio buffer."""
@@ -1436,21 +1435,27 @@ async def media_stream(websocket: WebSocket):
                 break
             
             # Target time for this chunk (0.02s per chunk)
-            # Subtracting the prefill time to keep overall time aligned
+            # Aggressive catch-up for weak server (Render Free)
             target_time = start_time + ((sent_chunks - prefill_count) * 0.02)
             delay = target_time - time.perf_counter()
+            
             if delay > 0:
                 await asyncio.sleep(delay)
+            elif delay < -0.1: # If late by >100ms, reset start_time to catch up
+                start_time = time.perf_counter() - ((sent_chunks - prefill_count) * 0.02)
 
     async def handle_interaction(audio_data, sid):
         """Processes user voice and speaks back."""
         import tempfile
         path = None
         try:
-            # 1. Save to temp for STT
+            # 1. Save and Upsample to 16kHz for better STT
+            from pydub import AudioSegment
+            audio = AudioSegment(audio_data, frame_rate=8000, sample_width=2, channels=1)
+            audio = audio.set_frame_rate(16000)
+            
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                from sunona.helpers.audio_utils import pcm_to_wav
-                tf.write(pcm_to_wav(audio_data, 8000))
+                audio.export(tf.name, format="wav")
                 path = tf.name
             
             # 2. Transcribe
@@ -1479,11 +1484,20 @@ async def media_stream(websocket: WebSocket):
             tts_path, err = await api_client.synthesize_speech(resp, "Edge TTS (Free)")
             if tts_path:
                 try:
-                    from pydub import AudioSegment
-                    audio = AudioSegment.from_file(tts_path).set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                    from pydub import AudioSegment, effects
+                    logger.info(f"Preparing AI voice from {tts_path}")
+                    # Normalizing for clear, crackle-free audio
+                    audio = AudioSegment.from_file(tts_path)
+                    audio = effects.normalize(audio, headroom=3.0) # -3dB peak
+                    audio = audio.set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                    
                     from sunona.helpers.audio_utils import pcm_to_mulaw
                     mulaw_data = pcm_to_mulaw(audio.raw_data)
+                    
+                    nonlocal last_ai_speech_time
                     await send_to_twilio(mulaw_data, sid)
+                    import time
+                    last_ai_speech_time = time.time() # Start echo cooldown
                 finally:
                     try: os.unlink(tts_path)
                     except: pass
@@ -1518,6 +1532,11 @@ async def media_stream(websocket: WebSocket):
             elif event == "media":
                 payload = packet.get("media", {}).get("payload")
                 if payload:
+                    import time
+                    # Echo suppression cooldown (ignore speech for 600ms after AI finishes)
+                    if time.time() - last_ai_speech_time < 0.6:
+                        continue
+                        
                     chunk_pcm = mulaw_to_pcm(base64.b64decode(payload))
                     is_speech = await vad.process(chunk_pcm)
                     
@@ -1529,11 +1548,10 @@ async def media_stream(websocket: WebSocket):
                         silence_start = None
                         audio_buffer.extend(chunk_pcm)
                     elif user_is_speaking:
-                        import time
                         if silence_start is None: silence_start = time.time()
                         
-                        # Wait for 1.0s of silence (faster than 1.2s for "natural" feel)
-                        if time.time() - silence_start > 1.0:
+                        # Wait for 0.8s of silence (fast & snappy)
+                        if time.time() - silence_start > 0.8:
                             user_is_speaking = False
                             data_to_process = bytes(audio_buffer)
                             audio_buffer.clear()
