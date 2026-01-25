@@ -1,7 +1,9 @@
 # Sunona Demo Dependencies
 
-# Web UI
-gradio>=4.0.0
+# Web Framework & UI
+gradio>=6.4.0
+fastapi>=0.115.0
+uvicorn>=0.34.0
 
 # HTTP Client
 httpx>=0.25.0
@@ -11,20 +13,21 @@ aiohttp>=3.9.0
 python-dotenv>=1.0.0
 
 # LLM (Google Gemini via LiteLLM)
-litellm>=1.0.0
-google-generativeai>=0.3.0
+litellm>=1.81.0
+google-generativeai>=0.8.0
 
 # Audio Processing
-sounddevice>=0.4.6
-numpy>=1.24.0
-pygame>=2.5.0
+pydub>=0.25.1
+numpy>=2.0.0
+pygame>=2.6.0
 scipy>=1.11.0
+sounddevice>=0.4.6 #old
 
 # Text-to-Speech
-edge-tts>=6.1.0
+edge-tts>=7.2.0
 
 # Voice Activity Detection
 webrtcvad>=2.0.10
 
 # Telephony
-twilio>=8.0.0
+twilio>=9.10.0
