@@ -1382,7 +1382,7 @@ async def media_stream(websocket: WebSocket):
     
     # State tracking
     from sunona.vad.silero_vad import SimpleVAD
-    vad = SimpleVAD(threshold=0.04)
+    vad = SimpleVAD(threshold=0.08) # Higher threshold to ignore line hiss
     user_is_speaking = False
     silence_start = None
     speech_start_time = 0
@@ -1541,21 +1541,33 @@ async def media_stream(websocket: WebSocket):
                     if cur_now - last_ai_speech_time < 0.6:
                         continue
                         
-                    chunk_pcm = mulaw_to_pcm(base64.b64decode(payload))
-                    is_speech = await vad.process(chunk_pcm)
+                    await vad.process(chunk_pcm)
                     
-                    if is_speech:
+                    # Use smoothed VAD state for interruption (prevents single-pop triggers)
+                    if vad.is_speaking():
                         if not user_is_speaking:
                             logger.info("VAD: User started speaking")
                             await cancel_ai_speech()
                             user_is_speaking = True
                             speech_start_time = cur_now
-                            
+                    
+                    # Buffer collection: Start collecting if raw energy is detected or already speaking
+                    # This ensures we catch the first 100ms before VAD.is_speaking() triggers
+                    rms = 0
+                    try:
+                        import numpy as np
+                        audio = np.frombuffer(chunk_pcm, dtype=np.int16)
+                        rms = np.sqrt(np.mean(audio.astype(np.float32)**2)) / 32768.0
+                    except: pass
+                    
+                    is_currently_noisy = rms > 0.08
+                    
+                    if user_is_speaking or is_currently_noisy:
                         silence_start = None
                         audio_buffer.extend(chunk_pcm)
                         
-                        # Safety: If user speaks for > 6s, force process (prevents noise lockup)
-                        if cur_now - speech_start_time > 6.0:
+                        # Safety: If user speaks for > 6s, force process
+                        if cur_now - speech_start_time > 6.0 and speech_start_time > 0:
                             logger.info("VAD: Max speech duration reached, triggering AI")
                             user_is_speaking = False
                             data = bytes(audio_buffer)
@@ -1563,6 +1575,7 @@ async def media_stream(websocket: WebSocket):
                             active_ai_task = asyncio.create_task(handle_interaction(data, stream_sid))
                             
                     elif user_is_speaking:
+                        # This part handles the transition to silence
                         if silence_start is None: silence_start = cur_now
                         
                         # Wait for 0.8s of silence
