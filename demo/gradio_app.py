@@ -1410,9 +1410,9 @@ async def media_stream(websocket: WebSocket):
         chunk_size = 160 # 20ms
         sent_chunks = 0
         
-        # 1. Jitter Buffer Pre-fill (first 16 chunks / 320ms)
-        # This prevents "scattered" sound due to network jitter.
-        prefill_count = 16
+        # 1. Jitter Buffer Pre-fill (first 6 chunks / 120ms)
+        # Minimal pre-fill for hyper-latency
+        prefill_count = 6
         for i in range(0, min(len(audio_mulaw), chunk_size * prefill_count), chunk_size):
             chunk = audio_mulaw[i:i + chunk_size]
             msg = {"event": "media", "streamSid": sid, "media": {"payload": base64.b64encode(chunk).decode()}}
@@ -1452,13 +1452,10 @@ async def media_stream(websocket: WebSocket):
         import tempfile
         path = None
         try:
-            # 1. Save and Upsample to 16kHz for better STT
-            from pydub import AudioSegment
-            audio = AudioSegment(audio_data, frame_rate=8000, sample_width=2, channels=1)
-            audio = audio.set_frame_rate(16000)
-            
+            # 1. Faster STT: Write 8kHz WAV directly (skips pydub overhead)
+            from sunona.helpers.audio_utils import pcm_to_wav
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                audio.export(tf.name, format="wav")
+                tf.write(pcm_to_wav(audio_data, 8000))
                 path = tf.name
             
             # 2. Transcribe
@@ -1582,9 +1579,9 @@ async def media_stream(websocket: WebSocket):
                         # This part handles the transition to silence
                         if silence_start is None: silence_start = cur_now
                         
-                        # Wait for 0.8s of silence
-                        if cur_now - silence_start > 0.8:
-                            logger.info("VAD: User finished speaking")
+                        # Wait for 0.4s of silence (Turbo Snappy)
+                        if cur_now - silence_start > 0.4:
+                            logger.info("VAD: User finished speaking (Turbo)")
                             user_is_speaking = False
                             data = bytes(audio_buffer)
                             audio_buffer.clear()
