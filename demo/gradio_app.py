@@ -130,17 +130,19 @@ class APIClient:
     async def get_llm_response(
         self,
         messages: List[Dict[str, str]],
-        provider: str = "Gemini"
+        provider: str = "Groq"
     ) -> Tuple[str, Optional[str]]:
-        """Instant fallback LLM response."""
+        """Instant fallback LLM response (Groq primary, Gemini secondary)."""
         import httpx
         
         # Priority order for LLMs
-        providers = [provider]
-        if "Groq" not in providers and os.getenv("GROQ_API_KEY"):
-            providers.append("Groq")
-        if "OpenAI GPT" not in providers and os.getenv("OPENAI_API_KEY"):
-            providers.append("OpenAI GPT")
+        providers = []
+        if provider: providers.append(provider)
+        
+        # Ensure Groq and Gemini are in the list in preferred order
+        for fallback in ["Groq", "Gemini", "OpenAI GPT"]:
+            if fallback not in providers:
+                providers.append(fallback)
             
         last_err = None
         for p in providers:
