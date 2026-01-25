@@ -1293,11 +1293,14 @@ def create_demo_app():
                 # Determine webhook URL
                 # If NGROK is running or TWILIO_WEBHOOK_URL is set, use it.
                 # Otherwise try to guess from the Gradio request.
-                webhook_url = os.getenv("TWILIO_WEBHOOK_URL")
+                webhook_url = os.getenv("TWILIO_WEBHOOK_URL", "")
                 if not webhook_url:
                     # Attempt to derive from the current request URL
                     base_url = str(gr_request.request.base_url).rstrip("/")
                     webhook_url = f"{base_url}/voice"
+                elif not webhook_url.endswith("/voice"):
+                    # Ensure it ends with /voice
+                    webhook_url = f"{webhook_url.rstrip('/')}/voice"
                 
                 # Append session_id
                 final_webhook_url = f"{webhook_url}?session_id={session_id}"
