@@ -1365,7 +1365,7 @@ async def voice_endpoint(request: Request):
 
 @fastapi_app.websocket("/media")
 async def media_stream(websocket: WebSocket):
-    """Twilio Media Stream WebSocket with VAD."""
+    """Twilio Media Stream with Interruption Handling and HD Pacing."""
     await websocket.accept()
     logger.info("Twilio WebSocket connected")
     
@@ -1377,56 +1377,106 @@ async def media_stream(websocket: WebSocket):
     audio_buffer = bytearray()
     stream_sid = None
     
-    # Use SimpleVAD for silence detection
+    # State tracking
     from sunona.vad.silero_vad import SimpleVAD
-    vad = SimpleVAD(threshold=0.01) # Low energy threshold for phone calls
+    vad = SimpleVAD(threshold=0.04) # Slightly higher to ignore line hiss
     user_is_speaking = False
     silence_start = None
-    
+    active_ai_task = None # Tracks current speaking/processing task
+
+    async def cancel_ai_speech():
+        """Cancel current AI response and clear Twilio buffer."""
+        nonlocal active_ai_task
+        if active_ai_task and not active_ai_task.done():
+            logger.info("Interruption detected: Stopping AI speech")
+            active_ai_task.cancel()
+            if stream_sid:
+                try:
+                    # Send clear command to Twilio to stop playback immediately
+                    await websocket.send_text(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                except: pass
+            active_ai_task = None
+
     async def send_to_twilio(audio_mulaw, sid):
-        """Send audio to Twilio with high-precision 20ms pacing."""
+        """High-precision pacer with Jitter Buffer (320ms)."""
         if not sid: return
         import time
         
-        chunk_size = 160 # 20ms of 8000Hz 8-bit mulaw
-        start_time = time.perf_counter()
+        chunk_size = 160 # 20ms
         sent_chunks = 0
         
-        for i in range(0, len(audio_mulaw), chunk_size):
+        # 1. Jitter Buffer Pre-fill (first 16 chunks / 320ms)
+        # This prevents "scattered" sound due to network jitter.
+        prefill_count = 16
+        for i in range(0, min(len(audio_mulaw), chunk_size * prefill_count), chunk_size):
             chunk = audio_mulaw[i:i + chunk_size]
-            if len(chunk) < chunk_size: continue
-            
-            try:
-                msg = {
-                    "event": "media",
-                    "streamSid": sid,
-                    "media": {"payload": base64.b64encode(chunk).decode()}
-                }
-                await websocket.send_text(json.dumps(msg))
-                sent_chunks += 1
-                
-                # High-precision pacing logic
-                target_time = start_time + (sent_chunks * 0.02)
-                remaining = target_time - time.perf_counter()
-                
-                if remaining > 0:
-                    await asyncio.sleep(remaining)
-            except Exception as e:
-                logger.error(f"Error sending audio chunk: {e}")
-                break
+            msg = {"event": "media", "streamSid": sid, "media": {"payload": base64.b64encode(chunk).decode()}}
+            await websocket.send_text(json.dumps(msg))
+            sent_chunks += 1
 
-    async def speak_greeting(sid):
+        # 2. Paced delivery for the rest
+        start_time = time.perf_counter()
+        for i in range(sent_chunks * chunk_size, len(audio_mulaw), chunk_size):
+            chunk = audio_mulaw[i:i + chunk_size]
+            if len(chunk) < chunk_size: break
+            
+            msg = {"event": "media", "streamSid": sid, "media": {"payload": base64.b64encode(chunk).decode()}}
+            await websocket.send_text(json.dumps(msg))
+            sent_chunks += 1
+            
+            # Target time for this chunk (0.02s per chunk)
+            # Subtracting the prefill time to keep overall time aligned
+            target_time = start_time + ((sent_chunks - prefill_count) * 0.02)
+            delay = target_time - time.perf_counter()
+            if delay > 0:
+                await asyncio.sleep(delay)
+
+    async def handle_interaction(audio_data, sid):
+        """Processes user voice and speaks back."""
+        import tempfile
+        path = None
         try:
-            await asyncio.sleep(0.8)
-            logger.info("Sending initial greeting")
-            path, err = await api_client.synthesize_speech("Hello, this is Sunona. How can I help you?", "Edge TTS (Free)")
-            if path:
-                from pydub import AudioSegment
-                audio = AudioSegment.from_file(path).set_frame_rate(8000).set_channels(1).set_sample_width(2)
-                from sunona.helpers.audio_utils import pcm_to_mulaw
-                await send_to_twilio(pcm_to_mulaw(audio.raw_data), sid)
-                os.unlink(path)
-        except Exception as e: logger.error(f"Greeting error: {e}")
+            # 1. Save to temp for STT
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                from sunona.helpers.audio_utils import pcm_to_wav
+                tf.write(pcm_to_wav(audio_data, 8000))
+                path = tf.name
+            
+            # 2. Transcribe
+            transcript, err = await api_client.transcribe_audio(path, "Deepgram")
+            if path: 
+                try: os.unlink(path)
+                except: pass
+            
+            if not transcript or len(transcript.strip()) < 2: return
+            logger.info(f"User: {transcript}")
+            history.append({"role": "user", "content": transcript})
+            
+            # 3. LLM Response
+            prompt = context.get("prompt", "You are Sunona AI. Be helpful and natural.")
+            messages = [{"role": "system", "content": prompt}] + history[-5:]
+            resp, err = await api_client.get_llm_response(messages)
+            if not resp: return
+            
+            logger.info(f"AI: {resp}")
+            history.append({"role": "assistant", "content": resp})
+            
+            # 4. Synthesize
+            tts_path, err = await api_client.synthesize_speech(resp, "Edge TTS (Free)")
+            if tts_path:
+                try:
+                    from pydub import AudioSegment
+                    audio = AudioSegment.from_file(tts_path).set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                    from sunona.helpers.audio_utils import pcm_to_mulaw
+                    mulaw_data = pcm_to_mulaw(audio.raw_data)
+                    await send_to_twilio(mulaw_data, sid)
+                finally:
+                    try: os.unlink(tts_path)
+                    except: pass
+        except asyncio.CancelledError:
+            logger.info("Response task cancelled due to interruption")
+        except Exception as ex:
+            logger.error(f"Interaction error: {ex}")
 
     try:
         async for message in websocket.iter_text():
@@ -1435,74 +1485,55 @@ async def media_stream(websocket: WebSocket):
             
             if event == "start":
                 stream_sid = packet.get("start", {}).get("streamSid")
-                asyncio.create_task(speak_greeting(stream_sid))
+                # Initial greeting
+                async def greet():
+                    nonlocal active_ai_task
+                    await asyncio.sleep(0.5)
+                    path, err = await api_client.synthesize_speech("Hello! This is Sunona. How can I help you?", "Edge TTS (Free)")
+                    if path:
+                        try:
+                            from pydub import AudioSegment
+                            audio = AudioSegment.from_file(path).set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                            from sunona.helpers.audio_utils import pcm_to_mulaw
+                            await send_to_twilio(pcm_to_mulaw(audio.raw_data), stream_sid)
+                        finally:
+                            try: os.unlink(path)
+                            except: pass
+                active_ai_task = asyncio.create_task(greet())
                 
             elif event == "media":
                 payload = packet.get("media", {}).get("payload")
                 if payload:
-                    chunk_mulaw = base64.b64decode(payload)
-                    chunk_pcm = mulaw_to_pcm(chunk_mulaw)
-                    
-                    # Detect speech
+                    chunk_pcm = mulaw_to_pcm(base64.b64decode(payload))
                     is_speech = await vad.process(chunk_pcm)
                     
                     if is_speech:
+                        # Cancel AI speaking if it currently is
+                        await cancel_ai_speech()
+                        
                         user_is_speaking = True
                         silence_start = None
                         audio_buffer.extend(chunk_pcm)
                     elif user_is_speaking:
-                        # User stopped speaking, start silence timer
                         import time
                         if silence_start is None: silence_start = time.time()
                         
-                        # Wait for 1.2 seconds of silence before thinking
-                        if time.time() - silence_start > 1.2:
+                        # Wait for 1.0s of silence (faster than 1.2s for "natural" feel)
+                        if time.time() - silence_start > 1.0:
                             user_is_speaking = False
                             data_to_process = bytes(audio_buffer)
                             audio_buffer.clear()
                             silence_start = None
                             
-                            async def handle_response(audio_data, sid):
-                                import tempfile
-                                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                                    from sunona.helpers.audio_utils import pcm_to_wav
-                                    tf.write(pcm_to_wav(audio_data, 8000))
-                                    path = tf.name
-                                try:
-                                    # 1. Transcribe
-                                    transcript, err = await api_client.transcribe_audio(path, "Deepgram")
-                                    os.unlink(path)
-                                    if not transcript or len(transcript.strip()) < 2: return
-                                    
-                                    logger.info(f"User speaking: {transcript}")
-                                    history.append({"role": "user", "content": transcript})
-                                    
-                                    # 2. LLM
-                                    prompt = context.get("prompt", "Be a helpful assistant.")
-                                    messages = [{"role": "system", "content": prompt}] + history[-5:]
-                                    resp, err = await api_client.get_llm_response(messages)
-                                    if not resp: return
-                                    
-                                    # 3. TTS
-                                    logger.info(f"AI Response: {resp}")
-                                    history.append({"role": "assistant", "content": resp})
-                                    tts_path, err = await api_client.synthesize_speech(resp, "Edge TTS (Free)")
-                                    if tts_path:
-                                        from pydub import AudioSegment
-                                        audio = AudioSegment.from_file(tts_path).set_frame_rate(8000).set_channels(1).set_sample_width(2)
-                                        from sunona.helpers.audio_utils import pcm_to_mulaw
-                                        await send_to_twilio(pcm_to_mulaw(audio.raw_data), sid)
-                                        os.unlink(tts_path)
-                                except Exception as ex: logger.error(f"Response error: {ex}")
-                            
-                            asyncio.create_task(handle_response(data_to_process, stream_sid))
+                            # Start new interaction task
+                            active_ai_task = asyncio.create_task(handle_interaction(data_to_process, stream_sid))
             
+            elif event == "stop": break
     except Exception as e:
         logger.error(f"WebSocket Loop Error: {e}")
     finally:
         logger.info("Twilio WebSocket disconnecting")
-        if session_id in call_contexts:
-            pass
+        await cancel_ai_speech()
 
 # Mount Gradio on FastAPI
 demo_app = create_demo_app()
