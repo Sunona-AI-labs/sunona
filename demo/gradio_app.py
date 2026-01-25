@@ -1517,30 +1517,58 @@ async def media_stream(websocket: WebSocket):
     audio_buffer = bytearray()
     stream_sid = None
     
-    # 1. Send initial greeting
-    try:
-        greeting = "Hello! I am Sunona AI. How can I help you today?"
-        logger.info(f"Sending greeting: {greeting}")
-        tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
-        tts_voice = context["cfg"].get("tts_voice")
-        audio_path, err = await api_client.synthesize_speech(greeting, tts_prov, tts_voice)
+    async def send_to_twilio(audio_mulaw, sid):
+        """Helper to send audio to Twilio in 20ms chunks (160 bytes)."""
+        if not sid:
+            return
         
-        if audio_path:
-            with open(audio_path, "rb") as af:
-                ai_audio_pcm = af.read()
+        chunk_size = 160
+        for i in range(0, len(audio_mulaw), chunk_size):
+            chunk = audio_mulaw[i:i + chunk_size]
+            media_msg = {
+                "event": "media",
+                "streamSid": sid,
+                "media": {
+                    "payload": base64.b64encode(chunk).decode()
+                }
+            }
+            await websocket.send_text(json.dumps(media_msg))
+            # 20ms delay to simulate real-time stream paced for Twilio
+            await asyncio.sleep(0.015) # slightly faster than 20ms to stay ahead
+
+    async def speak_greeting(sid):
+        """Background task to synthesize and send greeting."""
+        try:
+            # Short delay to let the call stabilize
+            await asyncio.sleep(0.5)
+            greeting = "Hello! I am Sunona AI. How can I help you today?"
+            logger.info(f"Synthesizing greeting: {greeting}")
             
-            if ai_audio_pcm.startswith(b'RIFF'):
-                from sunona.helpers.audio_utils import wav_to_pcm
-                ai_audio_pcm = wav_to_pcm(ai_audio_pcm)
+            tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
+            tts_voice = context["cfg"].get("tts_voice")
+            audio_path, err = await api_client.synthesize_speech(greeting, tts_prov, tts_voice)
+            
+            if audio_path:
+                with open(audio_path, "rb") as af:
+                    pcm = af.read()
                 
-            from sunona.helpers.audio_utils import resample_audio, pcm_to_mulaw
-            ai_audio_8k = resample_audio(ai_audio_pcm, 24000, 8000)
-            ai_audio_mulaw = pcm_to_mulaw(ai_audio_8k)
-            
-            # We wait for the stream SID to arrive before sending, 
-            # but we can also store it and send as soon as 'start' event hits.
-    except Exception as e:
-        logger.error(f"Failed to send greeting: {e}")
+                if pcm.startswith(b'RIFF'):
+                    from sunona.helpers.audio_utils import wav_to_pcm
+                    pcm = wav_to_pcm(pcm)
+                
+                from sunona.helpers.audio_utils import resample_audio, pcm_to_mulaw
+                pcm_8k = resample_audio(pcm, 24000, 8000)
+                mulaw = pcm_to_mulaw(pcm_8k)
+                
+                logger.info(f"Sending greeting to Twilio SID: {sid}")
+                await send_to_twilio(mulaw, sid)
+                
+                try: os.unlink(audio_path)
+                except: pass
+        except Exception as e:
+            logger.error(f"Greeting error: {e}")
+
+    try:
         async for message in websocket.iter_text():
             packet = json.loads(message)
             event = packet.get("event")
@@ -1548,95 +1576,72 @@ async def media_stream(websocket: WebSocket):
             if event == "start":
                 stream_sid = packet.get("start", {}).get("streamSid")
                 logger.info(f"Stream SID: {stream_sid}")
-                
-                # Send the greeting now that we have the SIS
-                if 'ai_audio_mulaw' in locals():
-                    media_msg = {
-                        "event": "media",
-                        "streamSid": stream_sid,
-                        "media": {
-                            "payload": base64.b64encode(ai_audio_mulaw).decode()
-                        }
-                    }
-                    await websocket.send_text(json.dumps(media_msg))
-                    if 'audio_path' in locals():
-                        try: os.unlink(audio_path)
-                        except: pass
+                # Start greeting in background
+                asyncio.create_task(speak_greeting(stream_sid))
                 
             elif event == "media":
                 payload = packet.get("media", {}).get("payload")
                 if payload:
-                    # Convert mulaw to PCM and add to buffer
                     audio_mulaw = base64.b64decode(payload)
                     audio_pcm = mulaw_to_pcm(audio_mulaw)
                     audio_buffer.extend(audio_pcm)
                     
-                    # Reduce buffer to 800ms (12800 bytes at 8kHz 16-bit)
-                    # for much faster reactivity.
-                    if len(audio_buffer) >= 12800:
-                        # Process audio
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                            from sunona.helpers.audio_utils import pcm_to_wav
-                            # Twilio is 8k, but Deepgram likes 16k usually. 
-                            # mulaw_to_pcm above doesn't resample.
-                            # So it's 8k PCM.
-                            wav_data = pcm_to_wav(bytes(audio_buffer), sample_rate=8000)
-                            tf.write(wav_data)
-                            temp_name = tf.name
-                        
-                        try:
-                            # 1. Transcribe
-                            stt_prov = context["cfg"].get("stt_provider", "Deepgram")
-                            transcript, err = await api_client.transcribe_audio(temp_name, stt_prov)
-                            os.unlink(temp_name)
-                            
-                            if transcript and len(transcript.strip()) > 3:
-                                logger.info(f"User (Phone): {transcript}")
-                                history.append({"role": "user", "content": transcript})
-                                
-                                # 2. Generate LLM
-                                msgs = [{"role": "system", "content": context["prompt"]}] + history[-5:]
-                                response, err = await api_client.get_llm_response(msgs)
-                                
-                                if response:
-                                    logger.info(f"AI (Phone): {response}")
-                                    history.append({"role": "assistant", "content": response})
-                                    
-                                    # 3. Synthesize
-                                    tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
-                                    tts_voice = context["cfg"].get("tts_voice")
-                                    audio_path, err = await api_client.synthesize_speech(response, tts_prov, tts_voice)
-                                    
-                                    if audio_path:
-                                        with open(audio_path, "rb") as af:
-                                            ai_audio_pcm = af.read()
-                                        
-                                        # Edge TTS is 24k usually. Need to convert to 8k mulaw.
-                                        from sunona.helpers.audio_utils import resample_audio, pcm_to_mulaw
-                                        # Extract PCM from wav first if it's wav
-                                        from sunona.helpers.audio_utils import wav_to_pcm
-                                        if ai_audio_pcm.startswith(b'RIFF'):
-                                            ai_audio_pcm = wav_to_pcm(ai_audio_pcm)
-                                            
-                                        # Resample to 8k
-                                        ai_audio_8k = resample_audio(ai_audio_pcm, 24000, 8000)
-                                        ai_audio_mulaw = pcm_to_mulaw(ai_audio_8k)
-                                        
-                                        # Send back to Twilio
-                                        media_msg = {
-                                            "event": "media",
-                                            "streamSid": stream_sid,
-                                            "media": {
-                                                "payload": base64.b64encode(ai_audio_mulaw).decode()
-                                            }
-                                        }
-                                        await websocket.send_text(json.dumps(media_msg))
-                                        os.unlink(audio_path)
-                        except Exception as e:
-                            logger.error(f"Stream processing error: {e}")
-                        
+                    # Process every 1 second of audio
+                    if len(audio_buffer) >= 16000: # 1s at 8kHz 16bit
+                        # Take copy and clear buffer
+                        chunk_to_process = bytes(audio_buffer)
                         audio_buffer.clear()
+                        
+                        # Process in background to avoid blocking next media packets
+                        async def process_user_audio(audio_data, sid):
+                            import tempfile
+                            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                                from sunona.helpers.audio_utils import pcm_to_wav
+                                wav_data = pcm_to_wav(audio_data, sample_rate=8000)
+                                tf.write(wav_data)
+                                tf_path = tf.name
+                            
+                            try:
+                                # 1. Transcribe
+                                stt_prov = context["cfg"].get("stt_provider", "Deepgram")
+                                transcript, err = await api_client.transcribe_audio(tf_path, stt_prov)
+                                os.unlink(tf_path)
+                                
+                                if transcript and len(transcript.strip()) > 3:
+                                    logger.info(f"User speaking: {transcript}")
+                                    history.append({"role": "user", "content": transcript})
+                                    
+                                    # 2. LLM
+                                    msgs = [{"role": "system", "content": context["prompt"]}] + history[-5:]
+                                    response, err = await api_client.get_llm_response(msgs)
+                                    
+                                    if response:
+                                        logger.info(f"AI responding: {response}")
+                                        history.append({"role": "assistant", "content": response})
+                                        
+                                        # 3. TTS
+                                        tts_prov = context["cfg"].get("tts_provider", "Edge TTS (Free)")
+                                        tts_voice = context["cfg"].get("tts_voice")
+                                        path, err = await api_client.synthesize_speech(response, tts_prov, tts_voice)
+                                        
+                                        if path:
+                                            with open(path, "rb") as af:
+                                                ai_pcm = af.read()
+                                            
+                                            from sunona.helpers.audio_utils import wav_to_pcm, resample_audio, pcm_to_mulaw
+                                            if ai_pcm.startswith(b'RIFF'):
+                                                ai_pcm = wav_to_pcm(ai_pcm)
+                                            
+                                            # Edge TTS 24k -> Phone 8k
+                                            ai_8k = resample_audio(ai_pcm, 24000, 8000)
+                                            ai_mulaw = pcm_to_mulaw(ai_8k)
+                                            
+                                            await send_to_twilio(ai_mulaw, sid)
+                                            os.unlink(path)
+                            except Exception as ex:
+                                logger.error(f"Processing task error: {ex}")
+                        
+                        asyncio.create_task(process_user_audio(chunk_to_process, stream_sid))
             
             elif event == "stop":
                 logger.info("Twilio Stream stopped")
