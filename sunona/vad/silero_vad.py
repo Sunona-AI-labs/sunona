@@ -164,7 +164,7 @@ class SileroVAD:
                 logger.error(f"Failed to load Silero VAD: {e}")
                 raise
     
-    def _audio_to_tensor(self, audio: bytes) -> torch.Tensor:
+    def _audio_to_tensor(self, audio: bytes) -> "torch.Tensor":
         """Convert audio bytes to normalized tensor."""
         # Assume 16-bit PCM audio
         audio_array = np.frombuffer(audio, dtype=np.int16)
