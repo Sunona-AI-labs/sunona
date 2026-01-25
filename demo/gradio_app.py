@@ -203,7 +203,7 @@ class APIClient:
                     # Try Gemini REST API directly
                     async with httpx.AsyncClient() as client:
                         response = await client.post(
-                            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key={api_key}",
+                            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
                             json={
                                 "contents": [{"parts": [{"text": full_prompt}]}],
                                 "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7}
@@ -1549,22 +1549,23 @@ async def media_stream(websocket: WebSocket):
             audio_path, err = await api_client.synthesize_speech(greeting, tts_prov, tts_voice)
             
             if audio_path:
-                with open(audio_path, "rb") as af:
-                    pcm = af.read()
-                
-                if pcm.startswith(b'RIFF'):
-                    from sunona.helpers.audio_utils import wav_to_pcm
-                    pcm = wav_to_pcm(pcm)
-                
-                from sunona.helpers.audio_utils import resample_audio, pcm_to_mulaw
-                pcm_8k = resample_audio(pcm, 24000, 8000)
-                mulaw = pcm_to_mulaw(pcm_8k)
-                
-                logger.info(f"Sending greeting to Twilio SID: {sid}")
-                await send_to_twilio(mulaw, sid)
-                
-                try: os.unlink(audio_path)
-                except: pass
+                try:
+                    from pydub import AudioSegment
+                    logger.info(f"Preparing greeting from {audio_path}")
+                    audio = AudioSegment.from_file(audio_path)
+                    audio = audio.set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                    pcm_8k = audio.raw_data
+                    
+                    from sunona.helpers.audio_utils import pcm_to_mulaw
+                    mulaw = pcm_to_mulaw(pcm_8k)
+                    
+                    logger.info(f"Sending greeting to Twilio SID: {sid}")
+                    await send_to_twilio(mulaw, sid)
+                    
+                    try: os.unlink(audio_path)
+                    except: pass
+                except Exception as g_err:
+                    logger.error(f"Greeting preparation failed: {g_err}")
         except Exception as e:
             logger.error(f"Greeting error: {e}")
 
@@ -1625,19 +1626,25 @@ async def media_stream(websocket: WebSocket):
                                         path, err = await api_client.synthesize_speech(response, tts_prov, tts_voice)
                                         
                                         if path:
-                                            with open(path, "rb") as af:
-                                                ai_pcm = af.read()
-                                            
-                                            from sunona.helpers.audio_utils import wav_to_pcm, resample_audio, pcm_to_mulaw
-                                            if ai_pcm.startswith(b'RIFF'):
-                                                ai_pcm = wav_to_pcm(ai_pcm)
-                                            
-                                            # Edge TTS 24k -> Phone 8k
-                                            ai_8k = resample_audio(ai_pcm, 24000, 8000)
-                                            ai_mulaw = pcm_to_mulaw(ai_8k)
-                                            
-                                            await send_to_twilio(ai_mulaw, sid)
-                                            os.unlink(path)
+                                            try:
+                                                from pydub import AudioSegment
+                                                logger.info(f"Converting audio response from {path}")
+                                                
+                                                # Use pydub to handle MP3 or WAV
+                                                audio = AudioSegment.from_file(path)
+                                                # Convert to 8kHz mono 16-bit PCM
+                                                audio = audio.set_frame_rate(8000).set_channels(1).set_sample_width(2)
+                                                ai_8k = audio.raw_data
+                                                
+                                                from sunona.helpers.audio_utils import pcm_to_mulaw
+                                                ai_mulaw = pcm_to_mulaw(ai_8k)
+                                                
+                                                logger.info(f"Sending AI response ({len(ai_mulaw)} bytes) to Twilio")
+                                                await send_to_twilio(ai_mulaw, sid)
+                                                try: os.unlink(path)
+                                                except: pass
+                                            except Exception as conv_err:
+                                                logger.error(f"Audio conversion failed: {conv_err}")
                             except Exception as ex:
                                 logger.error(f"Processing task error: {ex}")
                         
