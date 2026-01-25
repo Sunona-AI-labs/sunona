@@ -1541,6 +1541,7 @@ async def media_stream(websocket: WebSocket):
                     if cur_now - last_ai_speech_time < 0.6:
                         continue
                         
+                    chunk_pcm = mulaw_to_pcm(base64.b64decode(payload))
                     await vad.process(chunk_pcm)
                     
                     # Use smoothed VAD state for interruption (prevents single-pop triggers)
