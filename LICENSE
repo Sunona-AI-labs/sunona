@@ -1,18 +1,43 @@
-Sunona Sustainable Use License (SSUL)
+# SSUL License (Strict Sustainable Use License)
 
-Copyright (c) 2026 Sunona-AI-labs
+Version 1.0  
+Licensor: Sunona-AI-labs
 
-Permission is hereby granted to individuals to use, copy, modify, and self-host
-this software for personal and non-commercial purposes only.
+## Acceptance
+By using this software, you agree to all of the terms and conditions below.
 
-Restrictions:
-1. Corporate, organizational, or commercial use is strictly prohibited.
-2. The software may not be sold, sublicensed, or redistributed for profit.
-3. The software may only be used for private or individual projects.
-4. Any modification or derivative work must also comply with these terms.
-5. Hosting this software as a service for others (paid or free) is not allowed
-   without prior written permission from Sunona-AI-labs.
+## Copyright & Ownership
+The software and all its contents are the exclusive property of **Sunona-AI-labs** (Licensor).  
+You are granted rights to use the software only under the conditions described here.  
+Ownership of the code remains entirely with the Licensor.
 
-Disclaimer:
-This software is provided "as is", without warranty of any kind. The authors
-shall not be liable for any damages arising from the use of this software.
+## License Grant
+The Licensor grants you a non-exclusive, royalty-free, worldwide license to:
+- Use, copy, and study the software **only for personal or educational purposes**.  
+- Share the software with others **only free of charge** and **only for non-commercial purposes**.  
+
+## Limitations
+- **Commercial use is strictly prohibited.** This includes but is not limited to:  
+  - Selling the software or derivatives.  
+  - Offering the software as a service (SaaS) product.  
+  - Using the software in any business or for-profit context.  
+- **Mutations, modifications, or derivative works** of the software are also subject to these same restrictions.  
+  - Any altered version of the code used for commercial purposes constitutes a **license violation** under applicable copyright law.  
+- You may not remove or alter copyright/licensing notices.  
+- You may not use the Licensor�s trademarks without permission.  
+
+## Legal Enforcement
+- Any unauthorized commercial use, including use of modified or mutated versions of the code, constitutes copyright infringement.  
+- The Licensor reserves the right to pursue legal remedies if the software is copied, distributed, or used in violation of these terms.  
+
+## Notices
+- If you distribute modified versions for personal/educational use, you must include a clear notice stating that you have modified the software.  
+- You must also include a copy of this license with any distribution.  
+
+## Termination
+- Violation of these terms immediately terminates your license.  
+- Repeated violations result in permanent termination.  
+
+## Disclaimer
+The software is provided as is, without warranty of any kind.  
+The Licensor is not liable for any damages arising from use of the software.
