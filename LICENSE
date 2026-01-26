@@ -1,21 +1,18 @@
-MIT License
+Sunona Sustainable Use License (SSUL)
 
-Copyright (c) 2024 Sunona AI
+Copyright (c) 2026 Sunona-AI-labs
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted to individuals to use, copy, modify, and self-host
+this software for personal and non-commercial purposes only.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Restrictions:
+1. Corporate, organizational, or commercial use is strictly prohibited.
+2. The software may not be sold, sublicensed, or redistributed for profit.
+3. The software may only be used for private or individual projects.
+4. Any modification or derivative work must also comply with these terms.
+5. Hosting this software as a service for others (paid or free) is not allowed
+   without prior written permission from Sunona-AI-labs.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Disclaimer:
+This software is provided "as is", without warranty of any kind. The authors
+shall not be liable for any damages arising from the use of this software.
