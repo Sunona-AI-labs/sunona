@@ -43,7 +43,7 @@ Documentation = "https://github.com/Sunona-AI-labs/sunona#readme"
 [project.optional-dependencies]
 dev = [
     "pip-tools",
-    "pytest>=8.0.0",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
     "httpx>=0.25.0",
