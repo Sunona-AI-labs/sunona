@@ -51,7 +51,7 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.8.0",
 ]
-aws = ["boto3>=1.34.0"]
+aws = ["boto3>=1.42.89"]
 azure = ["azure-cognitiveservices-speech>=1.30.0"]
 google = ["google-cloud-speech>=2.21.0"]
 telephony-extra = [
@@ -59,7 +59,7 @@ telephony-extra = [
     "telnyx>=2.1.0",
 ]
 all-providers = [
-    "boto3>=1.34.0",
+    "boto3>=1.42.89",
     "azure-cognitiveservices-speech>=1.30.0",
     "google-cloud-speech>=2.21.0",
     "signalwire>=1.4.0",
