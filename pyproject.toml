@@ -55,14 +55,14 @@ aws = ["boto3>=1.34.0"]
 azure = ["azure-cognitiveservices-speech>=1.30.0"]
 google = ["google-cloud-speech>=2.21.0"]
 telephony-extra = [
-    "signalwire>=1.4.0",
+    "signalwire>=2.1.1",
     "telnyx>=2.1.0",
 ]
 all-providers = [
     "boto3>=1.34.0",
     "azure-cognitiveservices-speech>=1.30.0",
     "google-cloud-speech>=2.21.0",
-    "signalwire>=1.4.0",
+    "signalwire>=2.1.1",
     "telnyx>=2.1.0",
 ]
 
